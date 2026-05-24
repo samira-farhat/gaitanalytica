@@ -668,6 +668,8 @@ def get_profile(request):
 
     return Response(serializer.data)
 
+
+
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 # to update profile
@@ -675,6 +677,11 @@ def update_profile(request):
 
     # get or create profile
     profile, created= UserProfile.objects.get_or_create(user=request.user)
+
+    if request.data.get("remove_profile_pic"):
+        if profile.profile_pic:
+            profile.profile_pic.delete(save=False)
+        profile.profile_pic = None
 
     # update with incoming data
     serializer= UserProfileSerializer(profile, data=request.data, partial=True)

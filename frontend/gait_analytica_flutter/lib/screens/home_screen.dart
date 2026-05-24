@@ -25,11 +25,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // triggers data fetch as soon as the screen is initialized
+    // trigger data fetch as soon as the screen is initialized
     _fetchDashboardData();
   }
 
-  // fetches profile, sessions, and goals simultaneously using future.wait
+  // fetches profile, sessions, and goals simultaneously
   Future<void> _fetchDashboardData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -144,6 +144,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // custom app bar with profile icon and greeting
   Widget _buildAppBar(String name) {
+    // NEW: Check if profile picture exists in the fetched data
+    final String? profilePicPath = _userProfile?['profile_pic'];
+
     return SliverAppBar(
       floating: true,
       backgroundColor: AppColors.pureWhite,
@@ -158,12 +161,18 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                );
+                  MaterialPageRoute(builder: (context) => ProfileScreen()),
+                ).then((_) => _fetchDashboardData());
               },
               child: CircleAvatar(
                 backgroundColor: AppColors.skeletonBlue.withOpacity(0.1),
-                child: Icon(Icons.person_outline, color: AppColors.skeletonBlue),
+                // use NetworkImage if path exists (to show profile pic), otherwise show default icon
+                backgroundImage: profilePicPath != null
+                    ? NetworkImage("${ApiConfig.baseUrl}$profilePicPath")
+                    : null,
+                child: profilePicPath == null
+                    ? Icon(Icons.person_outline, color: AppColors.skeletonBlue)
+                    : null,
               ),
             ),
           ),
@@ -257,7 +266,6 @@ class _HomeScreenState extends State<HomeScreen> {
         double progress;
         if (lowerIsBetter) {
           // if lower is better, progress is target divided by current
-          // e.g., target 0.2 / current 0.3 = 66% progress
           progress = (latest > 0) ? (target / latest) : 0.0;
         } else {
           // if higher is better, progress is current divided by target
@@ -298,8 +306,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("Current: ${latest.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text("Target: ${target.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("Current: ${latest.toStringAsFixed(2)}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("Target: ${target.toStringAsFixed(2)}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
                   SizedBox(height: 12),

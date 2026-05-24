@@ -51,6 +51,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'gender',
             'height_cm',
             'weight_kg',
+            'profile_pic',
             'created_at'
         ]
 
