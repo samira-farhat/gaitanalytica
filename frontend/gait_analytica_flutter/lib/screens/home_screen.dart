@@ -4,9 +4,11 @@ import 'package:gait_analytica_flutter/screens/profile_screen.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/config/api_config.dart';
+import '../core/config/goal_config.dart'; // Added for metric naming consistency
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import '../core/services/insight_service.dart';
+import 'goals_hub_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -107,8 +109,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     SizedBox(height: 35),
 
                     _buildSectionHeader("Recovery Progress", "View All", () {
-                      // TODO
-                      debugPrint("Navigate to Goals Screen");
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => GoalsHubScreen()),
+                      ).then((_) => _fetchDashboardData()); // Refresh dashboard when coming back
                     }),
                     _buildGoalsList(),
 
@@ -254,22 +258,39 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: _recentGoals.map((goal) {
         final String status = goal['status'] ?? "Active";
-        final String rawMetric = goal['metric_name'].toString(); // keeping raw name for logic
-        final String metricName = rawMetric.replaceAll('_', ' ').toUpperCase();
+        final String rawMetric = goal['metric_name'].toString();
+
+        // Use GoalConfigs to get the clean display name (e.g., "Knee ROM")
+        final String metricName = GoalConfigs.metrics[rawMetric]?.displayName ?? rawMetric.replaceAll('_', ' ').toUpperCase();
 
         final double target = double.tryParse(goal['target_value'].toString()) ?? 1.0;
         final double latest = double.tryParse(goal['latest_value']?.toString() ?? goal['starting_value']?.toString() ?? "0") ?? 0.0;
+        final double start = double.tryParse(goal['starting_value']?.toString() ?? "0") ?? 0.0;
 
-        // logic: determine if lower is better for this specific metric
-        bool lowerIsBetter = rawMetric == "stride_time_cv" || rawMetric == "knee_symmetry_diff";
+        // logic: determine if lower is better for this specific metric from config
+        bool higherIsBetter = GoalConfigs.metrics[rawMetric]?.higherIsBetter ?? true;
 
-        double progress;
-        if (lowerIsBetter) {
-          // if lower is better, progress is target divided by current
-          progress = (latest > 0) ? (target / latest) : 0.0;
+        double progress = 0.0;
+
+        if (higherIsBetter) {
+          if (latest >= target) {
+            progress = 1.0;
+          } else if (latest <= start) {
+            progress = 0.0;
+          } else {
+            // Journey formula for increasing values
+            progress = (latest - start) / (target - start);
+          }
         } else {
-          // if higher is better, progress is current divided by target
-          progress = (target > 0) ? (latest / target) : 0.0;
+          // Lower is better logic (e.g., Stride CV)
+          if (latest <= target) {
+            progress = 1.0;
+          } else if (latest >= start) {
+            progress = 0.0;
+          } else {
+            // Journey formula for decreasing values
+            progress = (start - latest) / (start - target);
+          }
         }
 
         // clamp between 0.0 and 1.0 for the progress bar
