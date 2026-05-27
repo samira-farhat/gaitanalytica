@@ -868,19 +868,19 @@ def get_goals(request):
                 higher_is_better = False
 
             # auto-update status
-            if higher_is_better:
-                if latest_value >= goal.target_value:
-                    goal.status = "Achieved"
-                else:
-                    goal.status = "Active"
+            if goal.status == "Active":
 
-            else:
-                if latest_value <= goal.target_value:
-                    goal.status = "Achieved"
-                else:
-                    goal.status = "Active"
+                if higher_is_better:
 
-            goal.save()
+                    if latest_value >= goal.target_value:
+                        goal.status = "Achieved"
+
+                else:
+
+                    if latest_value <= goal.target_value:
+                        goal.status = "Achieved"
+
+                goal.save()
 
         response_data.append({
 
@@ -965,19 +965,19 @@ def get_goal_details(request, goal_id):
                 higher_is_better = False
 
             # update goal status
-            if higher_is_better:
-                if latest_value >= goal.target_value:
-                    goal.status = "Achieved"
-                else:
-                    goal.status = "Active"
+            if goal.status == "Active":
 
-            else:
-                if latest_value <= goal.target_value:
-                    goal.status = "Achieved"
-                else:
-                    goal.status = "Active"
+                if higher_is_better:
 
-            goal.save()
+                    if latest_value >= goal.target_value:
+                        goal.status = "Achieved"
+
+                else:
+
+                    if latest_value <= goal.target_value:
+                        goal.status = "Achieved"
+
+                goal.save()
 
         except GaitAnalysis.DoesNotExist:
             pass
@@ -1010,15 +1010,17 @@ def get_goal_details(request, goal_id):
         "created_at": goal.created_at
     })
 
+
 @api_view(['PUT', 'PATCH'])
+# to update a specific goal
 @permission_classes([IsAuthenticated])
 
 # to update a specific goal
 def update_goal(request, goal_id):
 
     try:
-        # get goal only if it belongs to a logged-in user
-        goal= UserGoal.objects.get(
+        # get goal only if it belongs to logged-in user
+        goal = UserGoal.objects.get(
             id=goal_id,
             user=request.user
         )
@@ -1029,47 +1031,133 @@ def update_goal(request, goal_id):
             {"error": "Goal not found"},
             status=404
         )
-    
-    # block update if the goal is already achieved
+
+    # block update if goal already achieved
     if goal.status == "Achieved":
+
         return Response(
             {"error": "Cannot update an achieved goal"},
             status=400
         )
 
-    # only update allowed fields
-    target_value= request.data.get('target_value')
-    end_date= request.data.get('end_date')
+    # block update if goal cancelled
+    if goal.status == "Cancelled":
+
+        return Response(
+            {"error": "Cannot update a cancelled goal"},
+            status=400
+        )
+
+    # get incoming fields
+    target_value = request.data.get('target_value')
+    end_date = request.data.get('end_date')
 
     # update target value if provided
     if target_value is not None:
-        goal.target_value= target_value
 
-    # update end data if provided
+        try:
+            target_value = float(target_value)
+
+        except ValueError:
+
+            return Response(
+                {"error": "Invalid target value"},
+                status=400
+            )
+
+        # validation per metric
+        if goal.metric_name == "avg_rom":
+
+            if target_value < 10 or target_value > 180:
+
+                return Response(
+                    {"error": "ROM target must be between 10 and 180"},
+                    status=400
+                )
+
+        elif goal.metric_name == "knee_symmetry_diff":
+
+            if target_value < 0 or target_value > 50:
+
+                return Response(
+                    {"error": "Symmetry target must be between 0 and 50"},
+                    status=400
+                )
+
+        elif goal.metric_name == "avg_step_length_norm":
+
+            if target_value < 0 or target_value > 2:
+
+                return Response(
+                    {"error": "Step length target must be between 0 and 2"},
+                    status=400
+                )
+
+        elif goal.metric_name == "cadence_bpm":
+
+            if target_value < 10 or target_value > 250:
+
+                return Response(
+                    {"error": "Cadence target must be between 10 and 250"},
+                    status=400
+                )
+
+        elif goal.metric_name == "stride_time_cv":
+
+            if target_value < 0 or target_value > 1:
+
+                return Response(
+                    {"error": "Stride consistency target must be between 0 and 1"},
+                    status=400
+                )
+
+        goal.target_value = target_value
+
+    # update end date if provided
     if end_date is not None:
-        goal.end_date= end_date
 
+        try:
+            parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        except ValueError:
+
+            return Response(
+                {"error": "Invalid date format"},
+                status=400
+            )
+
+        # prevent past dates
+        if parsed_date < timezone.now().date():
+
+            return Response(
+                {"error": "End date cannot be in the past"},
+                status=400
+            )
+
+        goal.end_date = parsed_date
+
+    # save updates
     goal.save()
 
-    # recheck the updated goal with latest session (after update)
-    latest_session= GaitSession.objects.filter(user=request.user).order_by('-session_date').first()
-
-    if latest_session:
-        try:
-            analysis= GaitAnalysis.objects.get(session=latest_session)
-
-            check_goal_achievement(request.user, analysis)
-
-            goal.refresh_from_db() # to refresh goal in case of any updates
-
-        except GaitAnalysis.DoesNotExist:
-            pass
-
-    # get latest session again
+    # recheck goal achievement after update
     latest_session = GaitSession.objects.filter(
         user=request.user
     ).order_by('-session_date').first()
 
+    if latest_session:
+
+        try:
+            analysis = GaitAnalysis.objects.get(session=latest_session)
+
+            check_goal_achievement(request.user, analysis)
+
+            # refresh updated goal
+            goal.refresh_from_db()
+
+        except GaitAnalysis.DoesNotExist:
+            pass
+
+    # get latest metric value
     latest_value = None
 
     if latest_session:
@@ -1095,8 +1183,8 @@ def update_goal(request, goal_id):
         except GaitAnalysis.DoesNotExist:
             pass
 
-
     return Response({
+
         "message": "Goal updated successfully",
 
         "goal": {

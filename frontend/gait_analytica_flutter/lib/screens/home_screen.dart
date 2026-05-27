@@ -8,6 +8,7 @@ import '../core/config/goal_config.dart'; // Added for metric naming consistency
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import '../core/services/insight_service.dart';
+import 'goal_details_screen.dart';
 import 'goals_hub_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -57,10 +58,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (responses[2].statusCode == 200) {
         List allGoals = jsonDecode(responses[2].body);
-        setState(() {
-          // only take the 3 most recent goals for the dashboard display
-          _recentGoals = allGoals.take(3).toList();
-        });
+
+        // only keep Active or Achieved goals
+        List filteredGoals = allGoals.where((goal) {
+          return goal['status'] == 'Active' ||
+              goal['status'] == 'Achieved';
+        }).toList();
+
+        _recentGoals = filteredGoals.take(3).toList();
       }
     } catch (e) {
       debugPrint("dashboard error: $e");
@@ -71,11 +76,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // helper to decide progress bar and text color based on goal status/percentage
+  // UPDATED: Matches Goals Hub teal
   Color _getGoalColor(double progress, String status) {
     if (status == "Achieved") return Colors.green;
     if (progress < 0.3) return Colors.redAccent;
     if (progress < 0.7) return Colors.orangeAccent;
-    return AppColors.skeletonBlue;
+    return Colors.teal;
   }
 
   @override
@@ -252,45 +258,36 @@ class _HomeScreenState extends State<HomeScreen> {
   // renders a list of active goals with progress bars
   Widget _buildGoalsList() {
     if (_recentGoals.isEmpty) {
-      return _buildEmptyState("No active goals. Set one in profile.");
+      return _buildEmptyState("No active goals found.");
     }
 
     return Column(
       children: _recentGoals.map((goal) {
         final String status = goal['status'] ?? "Active";
         final String rawMetric = goal['metric_name'].toString();
+        final config = GoalConfigs.metrics[rawMetric];
 
-        // Use GoalConfigs to get the clean display name (e.g., "Knee ROM")
-        final String metricName = GoalConfigs.metrics[rawMetric]?.displayName ?? rawMetric.replaceAll('_', ' ').toUpperCase();
+        // Use GoalConfigs for naming consistency
+        final String metricName = config?.displayName ?? rawMetric.replaceAll('_', ' ').toUpperCase();
 
-        final double target = double.tryParse(goal['target_value'].toString()) ?? 1.0;
-        final double latest = double.tryParse(goal['latest_value']?.toString() ?? goal['starting_value']?.toString() ?? "0") ?? 0.0;
-        final double start = double.tryParse(goal['starting_value']?.toString() ?? "0") ?? 0.0;
+        double target = double.tryParse(goal['target_value'].toString()) ?? 0.0;
+        double latest = double.tryParse(goal['latest_value']?.toString() ?? goal['starting_value'].toString()) ?? 0.0;
+        double start = double.tryParse(goal['starting_value'].toString()) ?? 0.0;
 
-        // logic: determine if lower is better for this specific metric from config
-        bool higherIsBetter = GoalConfigs.metrics[rawMetric]?.higherIsBetter ?? true;
+        // FIX: Scaling for stride consistency as in Goals Hub
+        if (rawMetric == "stride_time_cv") {
+          if (target < 1.0) target *= 100;
+          if (latest < 1.0) latest *= 100;
+          if (start < 1.0) start *= 100;
+        }
 
+        // FIX: Consistent progress logic from Goals Hub
+        bool higherIsBetter = config?.higherIsBetter ?? true;
         double progress = 0.0;
-
         if (higherIsBetter) {
-          if (latest >= target) {
-            progress = 1.0;
-          } else if (latest <= start) {
-            progress = 0.0;
-          } else {
-            // Journey formula for increasing values
-            progress = (latest - start) / (target - start);
-          }
+          progress = latest / target;
         } else {
-          // Lower is better logic (e.g., Stride CV)
-          if (latest <= target) {
-            progress = 1.0;
-          } else if (latest >= start) {
-            progress = 0.0;
-          } else {
-            // Journey formula for decreasing values
-            progress = (start - latest) / (start - target);
-          }
+          progress = target / latest;
         }
 
         // clamp between 0.0 and 1.0 for the progress bar
@@ -298,51 +295,57 @@ class _HomeScreenState extends State<HomeScreen> {
         int percentage = (progress * 100).toInt();
         Color statusColor = _getGoalColor(progress, status);
 
+        // DESIGN UPDATED: Exactly like Goals Hub
         return Card(
-          margin: EdgeInsets.only(bottom: 15),
-          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 15),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: Colors.grey.shade100),
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: Colors.grey.shade100)
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () {
-              // TODO
-              debugPrint("Navigate to Goal Details");
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => GoalDetailsScreen(goal: goal),
+                ),
+              ).then((_) => _fetchDashboardData());
             },
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                      metricName,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.skeletonBlue)
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(metricName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.skeletonBlue)),
-                      Text(status.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                      Text(
+                          "Current: ${latest.toStringAsFixed(1)}${config?.unit ?? ''}",
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                      ),
+                      Text(
+                          "Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}",
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                      ),
                     ],
                   ),
-                  SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Current: ${latest.toStringAsFixed(2)}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text("Target: ${target.toStringAsFixed(2)}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    ],
-                  ),
-                  SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: Colors.grey.shade100,
                       color: statusColor,
-                      minHeight: 8,
-                    ),
+                      backgroundColor: Colors.grey.shade100
                   ),
-                  SizedBox(height: 8),
-                  Text("$percentage% Completed", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Text(
+                      "$percentage% Completed",
+                      style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)
+                  ),
                 ],
               ),
             ),
@@ -386,8 +389,8 @@ class _HomeScreenState extends State<HomeScreen> {
           child: InkWell(
             borderRadius: BorderRadius.circular(15),
             onTap: () {
-              // TODO
-              debugPrint("Navigate to Session Details");
+              // TODO: Navigator.push(context, MaterialPageRoute(builder: (context) => SessionDetailsScreen(session: session)));
+              debugPrint("Navigate to Session Details for Session $sessionDisplayNum");
             },
             child: ListTile(
               leading: CircleAvatar(

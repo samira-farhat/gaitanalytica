@@ -26,19 +26,19 @@ class GoalConfigs {
       higherIsBetter: true,
       minSafe: 60.0,
       maxSafe: 140.0,
-      icon: Icons.directions_walk,
+      icon: Icons.accessibility_new,
     ),
     'knee_symmetry_diff': GoalMetricConfig(
       displayName: "Knee Symmetry",
-      unit: "%",
-      higherIsBetter: false, // Lower diff is better
+      unit: "°",
+      higherIsBetter: false, // Lower difference is closer to perfect symmetry
       minSafe: 0.0,
       maxSafe: 15.0,
       icon: Icons.balance,
     ),
     'avg_step_length_norm': GoalMetricConfig(
       displayName: "Step Length",
-      unit: "m",
+      unit: "m", // Normalized but usually represents distance ratio
       higherIsBetter: true,
       minSafe: 0.3,
       maxSafe: 0.9,
@@ -55,10 +55,10 @@ class GoalConfigs {
     'stride_time_cv': GoalMetricConfig(
       displayName: "Stride Consistency",
       unit: "%",
-      higherIsBetter: false, // Lower variability is better
-      minSafe: 1.0,
-      maxSafe: 10.0,
-      icon: Icons.repeat,
+      higherIsBetter: false, // Lower variability means more consistent gait
+      minSafe: 1.0,  // User types '1' for 1%
+      maxSafe: 10.0, // User types '10' for 10%
+      icon: Icons.reorder,
     ),
   };
 }
