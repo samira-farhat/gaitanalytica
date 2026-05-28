@@ -56,8 +56,8 @@ class GoalConfigs {
       displayName: "Stride Consistency",
       unit: "%",
       higherIsBetter: false, // Lower variability means more consistent gait
-      minSafe: 1.0,  // User types '1' for 1%
-      maxSafe: 10.0, // User types '10' for 10%
+      minSafe: 1.0,
+      maxSafe: 10.0,
       icon: Icons.reorder,
     ),
   };

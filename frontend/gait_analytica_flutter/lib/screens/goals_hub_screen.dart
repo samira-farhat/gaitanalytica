@@ -108,9 +108,17 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
       appBar: AppBar(
         backgroundColor: AppColors.pureWhite,
         elevation: 0,
-        title: const Text("Recovery Goals", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
+        title: Text("Recovery Goals",
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.onyxCharcoal
+            )
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: AppColors.onyxCharcoal, size: 20),
+          icon: Icon(Icons.arrow_back_ios,
+              color: AppColors.onyxCharcoal,
+              size: 20
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -122,13 +130,15 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
             icon: Icon(Icons.sort, size: 16, color: AppColors.skeletonBlue),
             label: Text(_order.toUpperCase(), style: TextStyle(color: AppColors.skeletonBlue, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
-          const SizedBox(width: 8),
+
+          SizedBox(width: 8),
+
         ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.skeletonBlue,
           indicatorColor: AppColors.skeletonBlue,
-          tabs: const [Tab(text: "Active"), Tab(text: "Achieved"), Tab(text: "Cancelled")],
+          tabs: [Tab(text: "Active"), Tab(text: "Achieved"), Tab(text: "Cancelled")],
         ),
       ),
       body: _isLoading
@@ -140,7 +150,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddGoalSheet(),
         backgroundColor: AppColors.midnightNavy,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -154,15 +164,17 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.flag_outlined, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text("No $status goals found.", style: const TextStyle(color: Colors.grey)),
+
+            SizedBox(height: 16),
+
+            Text("No $status goals found.", style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final goal = filtered[index];
@@ -184,7 +196,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
         progress = progress.clamp(0.0, 1.0);
 
         return Card(
-          margin: const EdgeInsets.only(bottom: 15),
+          margin: EdgeInsets.only(bottom: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
           child: InkWell( // FIXED: Added InkWell for navigation
             borderRadius: BorderRadius.circular(20),
@@ -195,7 +207,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
               ).then((_) => _fetchGoals()); // Refresh when coming back
             },
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -204,7 +216,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                     children: [
                       Text(
                         config?.displayName ?? rawMetric,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: AppColors.skeletonBlue,
@@ -214,7 +226,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                       // show cancelled badge only in cancelled tab
                       if (status == "Cancelled")
                         Container(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 4,
                           ),
@@ -222,7 +234,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                             color: Colors.red.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
+                          child: Text(
                             "CANCELLED",
                             style: TextStyle(
                               color: Colors.red,
@@ -234,7 +246,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                     ],
                   ),
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -243,9 +255,13 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                       Text("Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
-                  const SizedBox(height: 12),
+
+                  SizedBox(height: 12),
+
                   LinearProgressIndicator(value: progress, color: _getGoalColor(progress, status), backgroundColor: Colors.grey.shade100),
-                  const SizedBox(height: 8),
+
+                  SizedBox(height: 8),
+
                   Text("${(progress * 100).toInt()}% Completed", style: TextStyle(color: _getGoalColor(progress, status), fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -260,7 +276,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => AddGoalBottomSheet(onGoalAdded: _fetchGoals, latestValues: _latestMetricValues),
     );
   }

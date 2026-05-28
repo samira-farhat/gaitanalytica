@@ -5,6 +5,7 @@ import '../core/config/api_config.dart';
 import '../core/config/goal_config.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
+import 'goals_trend_screen.dart';
 
 class GoalDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> goal;
@@ -368,7 +369,14 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => GoalTrendScreen(goal: _currentGoal),
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.show_chart),
                 label: const Text("VIEW PROGRESS TRENDS"),
                 style: ElevatedButton.styleFrom(
