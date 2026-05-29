@@ -227,6 +227,16 @@ class UserGoal(models.Model):
         default='Active'
     )
 
+    achieved_value = models.FloatField(
+        null=True,
+        blank=True
+    )
+
+    achieved_date = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
     start_date = models.DateTimeField(auto_now_add=True)
 
     end_date = models.DateField(

@@ -21,10 +21,10 @@ class GoalMetricConfig {
 class GoalConfigs {
   static Map<String, GoalMetricConfig> metrics = {
     'avg_rom': GoalMetricConfig(
-      displayName: "Knee ROM",
+      displayName: "Knee Range of Motion",
       unit: "°",
       higherIsBetter: true,
-      minSafe: 60.0,
+      minSafe: 50.0,
       maxSafe: 140.0,
       icon: Icons.accessibility_new,
     ),
@@ -37,15 +37,15 @@ class GoalConfigs {
       icon: Icons.balance,
     ),
     'avg_step_length_norm': GoalMetricConfig(
-      displayName: "Step Length",
-      unit: "m", // Normalized but usually represents distance ratio
+      displayName: "Step Efficiency",
+      unit: "ratio", // Normalized but usually represents distance ratio
       higherIsBetter: true,
-      minSafe: 0.3,
+      minSafe: 0.25,
       maxSafe: 0.9,
       icon: Icons.straighten,
     ),
     'cadence_bpm': GoalMetricConfig(
-      displayName: "Cadence",
+      displayName: "Walking Cadence",
       unit: "steps/min",
       higherIsBetter: true,
       minSafe: 70.0,
@@ -57,7 +57,7 @@ class GoalConfigs {
       unit: "%",
       higherIsBetter: false, // Lower variability means more consistent gait
       minSafe: 1.0,
-      maxSafe: 10.0,
+      maxSafe: 15.0,
       icon: Icons.reorder,
     ),
   };

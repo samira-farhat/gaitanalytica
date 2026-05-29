@@ -58,7 +58,10 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
   @override
   Widget build(BuildContext context) {
     final rawMetric = widget.goal['metric_name'].toString();
-    final config = GoalConfigs.metrics[rawMetric]!;
+    final config = GoalConfigs.metrics[rawMetric];
+    if (config == null) {
+      return Scaffold(body: Center(child: Text("Error: Metric not configured.")));
+    }
     final isPercentage = rawMetric == 'stride_time_cv';
     final goalStatus = widget.goal['status'] ?? "Active";
 
@@ -97,9 +100,34 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
 
             SizedBox(height: 40),
-            _buildGraph(config, isPercentage, displayTarget),
+            _buildGraph(config, isPercentage, displayTarget, goalStatus),
 
             SizedBox(height: 40),
+            if (goalStatus == "Achieved")
+              Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Center(
+                  child: Text(
+                    "Goal achieved! Progress is now frozen at final session.",
+                    style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+
+            if (goalStatus == "Cancelled")
+              Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Center(
+                  child: Text(
+                    "Goal cancelled. Trend is frozen at last recorded session.",
+                    style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+
+            SizedBox(height: 20),
             _buildTrendSummary(),
           ],
         ),
@@ -127,13 +155,22 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
   }
 
 
-  Widget _buildGraph(dynamic config, bool isPercentage, double targetValue) {
+  Widget _buildGraph(dynamic config, bool isPercentage, double targetValue, String goalStatus) {
+
+    if (_trendData == null || _trendData!['data_points'] == null) {
+      return const SizedBox.shrink();
+    }
+
     List<dynamic> points = _trendData!['data_points'];
+
     List<FlSpot> spots = [];
     double maxY = targetValue;
 
+    bool isFinalGoal =
+        goalStatus == "Achieved" || goalStatus == "Cancelled";
+
     for (int i = 0; i < points.length; i++) {
-      double val = double.parse(points[i]['value'].toString());
+      double val = double.tryParse(points[i]['value']?.toString() ?? '0') ?? 0.0;
       if (isPercentage) val *= 100;
       spots.add(FlSpot(i.toDouble(), val));
       if (val > maxY) maxY = val;
@@ -226,7 +263,24 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
               color: AppColors.midnightNavy,
               barWidth: 4,
               isStrokeCapRound: true,
-              dotData: FlDotData(show: true),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, bar, index) {
+                  if (index == spots.length - 1 && isFinalGoal) {
+                    return FlDotCirclePainter(
+                      radius: 5,
+                      color: goalStatus == "Achieved" ? Colors.green : Colors.grey,
+                      strokeWidth: 2,
+                      strokeColor: Colors.white,
+                    );
+                  }
+
+                  return FlDotCirclePainter(
+                    radius: 3,
+                    color: AppColors.midnightNavy,
+                  );
+                },
+              ),
               belowBarData: BarAreaData(
                 show: true,
                 gradient: LinearGradient(
@@ -244,9 +298,9 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
 
 
   Widget _buildTrendSummary() {
-    final trend = _trendData!['trend'] ?? "stable";
-    Color trendColor = trend == "improving" ? Colors.green : (trend == "worsening" ? Colors.red : Colors.orange);
-
+    final trend = _trendData?['trend']?.toString() ?? "stable";
+    Color trendColor = trend == "improving" ? Colors.green
+        : (trend == "worsening" ? Colors.red : Colors.orange);
     IconData trendIcon;
 
     if (trend == "improving") {

@@ -56,13 +56,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      // prepare the data payload (matches django request.data.get logic)
       final Map<String, dynamic> userData = {
         "first_name": _firstNameController.text.trim(),
         "last_name": _lastNameController.text.trim(),
-        "middle_name": _middleNameController.text.trim().isEmpty
-            ? null
-            : _middleNameController.text.trim(),
+        "middle_name": _middleNameController.text.trim().isEmpty ? null : _middleNameController.text.trim(),
         "age": int.tryParse(_ageController.text.trim()) ?? 0,
         "gender": _selectedGender,
         "height_cm": double.tryParse(_heightController.text.trim()) ?? 0,
@@ -72,58 +69,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "password": _passwordController.text.trim(),
       };
 
-      // send post request to django register endpoint
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/api/register/'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(userData),
       );
 
+      // Guard: Check if screen is still active after awaiting
+      if (!mounted) return;
+
       if (response.statusCode == 201) {
-        // success: move to otp verification screen
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                OtpScreen(email: _emailController.text.trim()),
+            builder: (context) => OtpScreen(email: _emailController.text.trim()),
           ),
         );
       } else {
-        // fail: show error from django backend
         final errorData = jsonDecode(response.body);
-
         String errorMessage = "Registration failed";
 
-        // case 1: simple backend error
-        if (errorData is Map && errorData.containsKey('error')) {
-          errorMessage = errorData['error'];
+        if (errorData is Map) {
+          if (errorData.containsKey('error')) {
+            errorMessage = errorData['error'].toString();
+          } else {
+            // Join validation errors into a readable string
+            errorMessage = errorData.entries
+                .map((e) => "${e.key.replaceAll('_', ' ')}: ${(e.value is List) ? (e.value as List).join(', ') : e.value}")
+                .join("\n");
+          }
         }
-
-        // case 2: Django field validation errors
-        else if (errorData is Map) {
-          errorMessage = errorData.entries.map((e) {
-            if (e.value is List) {
-              return "${e.key}: ${(e.value as List).join(', ')}";
-            }
-            return "${e.key}: ${e.value}";
-          }).join("\n");
-        }
-
-        setState(() {
-          _serverError = errorMessage;
-        });
+        setState(() => _serverError = errorMessage);
       }
     } catch (e) {
-      // network or server error
-      setState(() {
-        _serverError = "Connection error. Please try again.";
-      });
-    }
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (!mounted) return;
+      setState(() => _serverError = "Connection error. Please try again.");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

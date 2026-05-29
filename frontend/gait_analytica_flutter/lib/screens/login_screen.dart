@@ -49,76 +49,57 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // login function that connects to backend
   Future<void> loginUser() async {
-
     setState(() {
       _errorMessage = null;
       _isLoading = true;
     });
 
     try {
-
-      // request body
       final body = {
         "username": _usernameController.text.trim(),
         "password": _passwordController.text.trim(),
       };
 
-      // send request to django login endpoint
       final response = await http.post(
         Uri.parse("${ApiConfig.baseUrl}/api/token/"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(body),
       );
 
-      final data = jsonDecode(response.body);
+      // Guard: Check if screen was popped while waiting
+      if (!mounted) return;
+
+      // Ensure we have a valid body before decoding
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode == 200) {
-
-        // save tokens locally (shared preferences)
         await TokenStorage.saveTokens(
           accessToken: data['access'],
           refreshToken: data['refresh'],
         );
 
+        // Guard: Check mounted again before navigating
+        if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => HomeScreen()),
               (route) => false,
         );
-
       } else {
-
         setState(() {
-
-          _errorMessage = ApiResponseHandler.handleError(
-            data,
-            response.statusCode,
-          );
-
-          if (data["error"] == "Account not verified") {
-
-            _unverifiedEmail = data["email"];
-
-          } else {
-
-            _unverifiedEmail = null;
-          }
+          _errorMessage = ApiResponseHandler.handleError(data, response.statusCode);
+          _unverifiedEmail = (data["error"] == "Account not verified") ? data["email"] : null;
         });
       }
-
     } catch (e) {
-
-      // network / server error
+      if (!mounted) return;
       setState(() {
-        _errorMessage = ApiResponseHandler.handleError(
-          {"error": e.toString()},
-          500,
-        );
+        _errorMessage = ApiResponseHandler.handleError({"error": e.toString()}, 500);
       });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   @override

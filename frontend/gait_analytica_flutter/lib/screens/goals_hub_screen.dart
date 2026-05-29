@@ -6,7 +6,7 @@ import '../core/config/goal_config.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import 'goal_details_screen.dart'; // ADDED: Import the details screen
-import 'widgets/add_goal_bottom_sheet.dart';
+import '../core/widgets/add_goal_bottom_sheet.dart';
 
 class GoalsHubScreen extends StatefulWidget {
   const GoalsHubScreen({super.key});
@@ -83,7 +83,10 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
       if (results[0].statusCode == 200) {
         final List<dynamic> fetchedGoals = jsonDecode(results[0].body);
         for (var goal in fetchedGoals) {
-          latestMap[goal['metric_name'].toString()] = goal['latest_value'] ?? goal['starting_value'];
+          // Only map latest values for Active goals to avoid overwriting logic
+          if (goal['status'] == 'Active') {
+            latestMap[goal['metric_name'].toString()] = goal['latest_value'] ?? goal['starting_value'];
+          }
         }
         setState(() {
           _goals = fetchedGoals;
@@ -182,29 +185,53 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
         final config = GoalConfigs.metrics[rawMetric];
 
         double target = double.tryParse(goal['target_value'].toString()) ?? 0.0;
-        double latest = double.tryParse(goal['latest_value']?.toString() ?? goal['starting_value'].toString()) ?? 0.0;
-        double start = double.tryParse(goal['starting_value'].toString()) ?? 0.0;
+
+        double latest;
+
+        final goalStatus = goal['status'].toString().trim().toLowerCase();
+
+        if (goalStatus == "active") {
+
+          latest = double.tryParse(
+            _latestMetricValues[rawMetric]?.toString() ??
+                goal['latest_value']?.toString() ??
+                goal['starting_value'].toString(),
+          ) ?? 0.0;
+
+        }
+        else {
+
+          // achieved OR cancelled
+          latest = double.tryParse(
+            goal['achieved_value']?.toString() ??
+                goal['latest_value']?.toString() ??
+                goal['starting_value'].toString(),
+          ) ?? 0.0;
+
+        }
 
         if (rawMetric == "stride_time_cv") {
           if (target < 1.0) target *= 100;
           if (latest < 1.0) latest *= 100;
-          if (start < 1.0) start *= 100;
         }
 
         bool higherIsBetter = config?.higherIsBetter ?? true;
-        double progress = higherIsBetter ? (latest / target) : (target / latest);
+        double progress = 0.0;
+        if (target != 0.0) {
+          progress = higherIsBetter ? (latest / target) : (target / latest);
+        }
         progress = progress.clamp(0.0, 1.0);
 
         return Card(
           margin: EdgeInsets.only(bottom: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
-          child: InkWell( // FIXED: Added InkWell for navigation
+          child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => GoalDetailsScreen(goal: goal)),
-              ).then((_) => _fetchGoals()); // Refresh when coming back
+              ).then((_) => _fetchGoals());
             },
             child: Padding(
               padding: EdgeInsets.all(20),
@@ -223,8 +250,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                         ),
                       ),
 
-                      // show cancelled badge only in cancelled tab
-                      if (status == "Cancelled")
+                      if (goalStatus == "cancelled")
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 10,
@@ -251,8 +277,8 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("Current: ${latest.toStringAsFixed(1)}${config?.unit ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text("Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("Current: ${latest.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
 

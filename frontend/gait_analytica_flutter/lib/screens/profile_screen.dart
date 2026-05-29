@@ -48,6 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _fetchProfile() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final token = await TokenStorage.getAccessToken();
@@ -59,19 +60,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       );
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
           _profileData = data;
-          _firstNameController.text = data['user']['first_name'] ?? "";
-          _lastNameController.text = data['user']['last_name'] ?? "";
+          _firstNameController.text = data['user']?['first_name'] ?? "";
+          _lastNameController.text = data['user']?['last_name'] ?? "";
           _middleNameController.text = data['middle_name'] ?? "";
           _ageController.text = data['age']?.toString() ?? "";
           _heightController.text = data['height_cm']?.toString() ?? "";
           _weightController.text = data['weight_kg']?.toString() ?? "";
 
           String genderFromBackend = data['gender'] ?? "Other";
-          _selectedGender = genderFromBackend[0].toUpperCase() + genderFromBackend.substring(1).toLowerCase();
+          _selectedGender = genderFromBackend.isNotEmpty
+              ? genderFromBackend[0].toUpperCase() + genderFromBackend.substring(1).toLowerCase()
+              : "Other";
 
           _selectedImage = null;
           _isRemovingImage = false;
@@ -80,9 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       debugPrint("error fetching profile: $e");
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -194,9 +197,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       request.fields['height_cm'] = _heightController.text.trim();
       request.fields['weight_kg'] = _weightController.text.trim();
 
-      // handle removal vs upload
       if (_isRemovingImage) {
-        request.fields['remove_profile_pic'] = "true"; // tells backend to clear field
+        request.fields['remove_profile_pic'] = "true";
       } else if (_selectedImage != null) {
         if (kIsWeb) {
           final bytes = await _selectedImage!.readAsBytes();
@@ -209,23 +211,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         setState(() {
           _isEditing = false;
           _errorMessage = null;
         });
-        _fetchProfile();
+        await _fetchProfile();
       } else {
-        debugPrint("profile update failed: ${response.body}");
-        setState(() {
-          _errorMessage = "Failed to update profile. Please try again.";
-        });
+        setState(() => _errorMessage = "Failed to update profile.");
       }
     } catch (e) {
-      debugPrint("error updating profile: $e");
-      setState(() {
-        _errorMessage = "Network error. Check your connection.";
-      });
+      if (mounted) setState(() => _errorMessage = "Network error.");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

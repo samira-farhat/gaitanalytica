@@ -1,48 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:gait_analytica_flutter/screens/register_screen.dart';
-
-// importing custom app colors
 import '../core/theme/app_colors.dart';
 import 'about_screen.dart';
 import 'login_screen.dart';
 
-// welcome screen widget
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // setting the background color of the whole screen
       backgroundColor: AppColors.pureWhite,
-
       body: SafeArea(
         child: SingleChildScrollView(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height,
+              minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
             ),
-
             child: IntrinsicHeight(
               child: Padding(
-                // horizontal padding
-                padding: EdgeInsets.symmetric(horizontal: 24.0),
-
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-
-                    SizedBox(height: 50),
-
-                    // logo image
+                    const SizedBox(height: 50),
                     Image.asset(
                       'assets/logo_clear_bk.png',
                       height: 220,
                     ),
-
-                    SizedBox(height: 20),
-
-                    // app description
+                    const SizedBox(height: 20),
                     Text(
                       'Your pathway to precise gait analysis,\nreal-time monitoring, and movement optimization.\nReclaim your mobility.',
                       textAlign: TextAlign.center,
@@ -53,134 +39,42 @@ class WelcomeScreen extends StatelessWidget {
                         fontWeight: FontWeight.w400,
                       ),
                     ),
-
-                    SizedBox(height: 50),
-
-                    // row for login and register buttons
+                    const SizedBox(height: 50),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-
-                        // login button
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => LoginScreen(),
-                                ),
-                              );
-                            },
-
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.skeletonBlue,
-                              foregroundColor: AppColors.pureWhite,
-
-                              padding: EdgeInsets.symmetric(vertical: 18),
-
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(40),
-                              ),
-
-                              elevation: 4,
-                            ),
-
-                            child: Text(
-                              'LOG IN',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
-                            ),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
+                            style: _buttonStyle(),
+                            child: const Text('LOG IN', style: _buttonTextStyle),
                           ),
                         ),
-
-                        SizedBox(width: 16),
-
-                        // register button
+                        const SizedBox(width: 16),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => RegisterScreen(),
-                                ),
-                              );
-                            },
-
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.skeletonBlue,
-                              foregroundColor: AppColors.pureWhite,
-
-                              padding: EdgeInsets.symmetric(vertical: 18),
-
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(40),
-                              ),
-
-                              elevation: 4,
-                            ),
-
-                            child: Text(
-                              'REGISTER',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
-                            ),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                            style: _buttonStyle(),
+                            child: const Text('REGISTER', style: _buttonTextStyle),
                           ),
                         ),
                       ],
                     ),
-
-                    SizedBox(height: 28),
-
-                    // learn more outlined button
+                    const SizedBox(height: 28),
                     SizedBox(
                       width: 240,
-
                       child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AboutScreen(),
-                            ),
-                          );
-                        },
-
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.skeletonBlue,
-
-                          side: BorderSide(
-                            color: AppColors.skeletonBlue,
-                            width: 2,
-                          ),
-
-                          padding: EdgeInsets.symmetric(vertical: 18),
-
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(40),
-                          ),
+                          side: BorderSide(color: AppColors.skeletonBlue, width: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
                         ),
-
-                        child: Text(
-                          'LEARN MORE',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
+                        child: const Text('LEARN MORE', style: _buttonTextStyle),
                       ),
                     ),
-
-                    SizedBox(height: 100),
-
+                    const SizedBox(height: 50),
                   ],
                 ),
               ),
@@ -190,4 +84,19 @@ class WelcomeScreen extends StatelessWidget {
       ),
     );
   }
+
+  // Helpers to keep build method clean
+  ButtonStyle _buttonStyle() => ElevatedButton.styleFrom(
+    backgroundColor: AppColors.skeletonBlue,
+    foregroundColor: AppColors.pureWhite,
+    padding: const EdgeInsets.symmetric(vertical: 18),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+    elevation: 4,
+  );
+
+  static const TextStyle _buttonTextStyle = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 1,
+  );
 }

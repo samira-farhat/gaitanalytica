@@ -144,7 +144,8 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     double initialValue = double.tryParse(_currentGoal['target_value'].toString()) ?? 0.0;
     if (rawMetric == "stride_time_cv" && initialValue <= 1.0) initialValue *= 100;
 
-    final TextEditingController controller = TextEditingController(text: initialValue.toStringAsFixed(0));
+    final TextEditingController controller = TextEditingController(text: initialValue.toStringAsFixed(rawMetric == "stride_time_cv" ? 1 : 1));
+
     DateTime? selectedDate = _currentGoal['end_date'] != null
         ? DateTime.parse(_currentGoal['end_date'])
         : null;
@@ -206,28 +207,47 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                       return;
                     }
 
-                    // Logic for range validation
-                    double checkVal = val;
-                    // If it's stride consistency, the user entered 95, so config.minSafe might be 0.8
-                    // We need to compare them fairly
-                    if (rawMetric == "stride_time_cv" && checkVal > 1.0) checkVal /= 100;
+                    final bool isStride = rawMetric == 'stride_time_cv';
+                    final bool isStep = rawMetric == 'avg_step_length_norm';
 
-                    if (checkVal < config.minSafe || checkVal > config.maxSafe) {
-                      String safeRange = rawMetric == "stride_time_cv"
-                          ? "${(config.minSafe * 100).toInt()}-${(config.maxSafe * 100).toInt()}"
-                          : "${config.minSafe}-${config.maxSafe}";
-                      setSheetState(() => errorText = "Value must be between $safeRange");
+                    // 1. Range Validation Logic
+                    // We compare the human-entered value (e.g., 11.2) directly against
+                    // the config limits (1.0 to 15.0) WITHOUT dividing by 100 first.
+                    if (val < config.minSafe || val > config.maxSafe) {
+                      // We remove the (* 100) here because the config is already in % form
+                      String safeMin = config.minSafe.toStringAsFixed(isStep ? 2 : 1);
+                      String safeMax = config.maxSafe.toStringAsFixed(1);
+
+                      setSheetState(() => errorText = "Limit: $safeMin - $safeMax${config.unit}");
                       return;
                     }
 
+                    // 2. Improvement Logic
+                    double currentLatest = double.tryParse(_currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
+
+                    // We only normalize the latest_value from the backend (0.112 -> 11.2)
+                    if (isStride && currentLatest < 1.0) currentLatest *= 100;
+
+                    if (config.higherIsBetter) {
+                      if (val <= currentLatest) {
+                        setSheetState(() => errorText = "Must be > current (${currentLatest.toStringAsFixed(isStep ? 2 : 1)})");
+                        return;
+                      }
+                    } else {
+                      if (val >= currentLatest) {
+                        setSheetState(() => errorText = "Must be < current (${currentLatest.toStringAsFixed(isStep ? 2 : 1)})");
+                        return;
+                      }
+                    }
+
                     Navigator.pop(context);
-                    // Send to backend as decimal if stride consistency
+
+                    // 3. Backend Preparation
+                    // We ONLY divide by 100 here to convert the human % back to a decimal for the DB
                     double finalValue = val;
-                    if (rawMetric == "stride_time_cv" && finalValue > 1.0) finalValue /= 100;
-                    _updateGoal(
-                      finalValue,
-                      selectedDate ?? DateTime.now(), // fallback only for backend safety
-                    );
+                    if (isStride) finalValue = val / 100;
+
+                    _updateGoal(finalValue, selectedDate ?? DateTime.now());
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.midnightNavy,
@@ -269,10 +289,24 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
   Widget build(BuildContext context) {
     final status = _currentGoal['status'];
     final rawMetric = _currentGoal['metric_name'].toString();
-    final config = GoalConfigs.metrics[rawMetric]!;
+    final config = GoalConfigs.metrics[rawMetric];
+    if (config == null) {
+      return Scaffold(body: Center(child: Text("Error: Goal metric configuration not found.")));
+    }
 
+    // Update this block in the build method
     double target = double.tryParse(_currentGoal['target_value'].toString()) ?? 0.0;
-    double latest = double.tryParse(_currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
+    String goalStatus = _currentGoal['status'].toString().trim().toLowerCase();
+
+    double latest;
+    if (goalStatus == "active") {
+      // use live data for active goals
+      latest = double.tryParse(_currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
+    } else {
+      // if Achieved or Cancelled, prioritize the snapshot achieved_value
+      latest = double.tryParse(_currentGoal['achieved_value']?.toString() ?? _currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
+    }
+
 
     if (rawMetric == "stride_time_cv") {
       if (target < 1.0) target *= 100;
@@ -280,14 +314,26 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     }
 
     bool higherIsBetter = config.higherIsBetter;
-    double progress = higherIsBetter ? (latest / target) : (target / latest);
+    double progress = 0.0;
+    if (target != 0.0) {
+      progress = higherIsBetter ? (latest / target) : (target / latest);
+    }
     progress = progress.clamp(0.0, 1.0);
 
     final Color progressColor = _getGoalColor(progress, status);
 
-    final bool isPercentage = rawMetric == 'stride_time_cv' || config.unit == '%';
-    final String targetDisp = isPercentage ? "${target.toInt()}%" : "${target.toStringAsFixed(1)}${config.unit}";
-    final String currentDisp = isPercentage ? "${latest.toInt()}%" : "${latest.toStringAsFixed(1)}${config.unit}";
+    final bool isStride = rawMetric == 'stride_time_cv';
+    final bool isStep = rawMetric == 'avg_step_length_norm';
+
+    // u 1 decimal for Stride Consistency
+    // Use 2 decimals for Step Efficiency
+    final String targetDisp = isStride
+        ? "${target.toStringAsFixed(1)}%"
+        : "${target.toStringAsFixed(isStep ? 2 : 1)}${config.unit}";
+
+    final String currentDisp = isStride
+        ? "${latest.toStringAsFixed(1)}%"
+        : "${latest.toStringAsFixed(isStep ? 2 : 1)}${config.unit}";
 
     return Scaffold(
       backgroundColor: AppColors.pureWhite,
@@ -360,7 +406,9 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                     const Divider(height: 30),
                     _buildInfoRow("Target Value", targetDisp),
                     const Divider(height: 30),
-                    _buildInfoRow("Target Date", _currentGoal['end_date'] ?? "Not set"),
+                    _buildInfoRow("Target Date", _currentGoal['end_date'] != null
+                        ? _formatReadable(DateTime.parse(_currentGoal['end_date']))
+                        : "Not set"),
                   ],
                 ),
               ),

@@ -1,10 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:gait_analytica_flutter/screens/profile_screen.dart';
+import 'package:gait_analytica_flutter/screens/session_details_screen.dart';
+import 'package:gait_analytica_flutter/screens/session_history_screen.dart';
+import 'package:gait_analytica_flutter/screens/analysis_status_screen.dart';
+import 'package:gait_analytica_flutter/screens/scan_instructions_screen.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/config/api_config.dart';
-import '../core/config/goal_config.dart'; // Added for metric naming consistency
+import '../core/config/goal_config.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import '../core/services/insight_service.dart';
@@ -19,7 +25,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // state variables to hold loading status and api data
   bool _isLoading = true;
   Map<String, dynamic>? _userProfile;
   List<dynamic> _recentSessions = [];
@@ -28,11 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // trigger data fetch as soon as the screen is initialized
     _fetchDashboardData();
   }
 
-  // fetches profile, sessions, and goals simultaneously
   Future<void> _fetchDashboardData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -45,24 +48,23 @@ class _HomeScreenState extends State<HomeScreen> {
         "Authorization": "Bearer $token",
       };
 
-      // concurrent api calls to reduce waiting time
       final responses = await Future.wait([
         http.get(Uri.parse("${ApiConfig.baseUrl}/api/profile/"), headers: headers),
         http.get(Uri.parse("${ApiConfig.baseUrl}/api/sessions/"), headers: headers),
         http.get(Uri.parse("${ApiConfig.baseUrl}/api/goals/"), headers: headers),
       ]);
 
-      // decode responses only if status code is 200 (ok)
-      if (responses[0].statusCode == 200) _userProfile = jsonDecode(responses[0].body);
-      if (responses[1].statusCode == 200) _recentSessions = jsonDecode(responses[1].body);
+      if (responses[0].statusCode == 200 && responses[0].body.isNotEmpty) {
+        _userProfile = jsonDecode(responses[0].body);
+      }
+      if (responses[1].statusCode == 200 && responses[1].body.isNotEmpty) {
+        _recentSessions = jsonDecode(responses[1].body);
+      }
 
       if (responses[2].statusCode == 200) {
         List allGoals = jsonDecode(responses[2].body);
-
-        // only keep Active or Achieved goals
         List filteredGoals = allGoals.where((goal) {
-          return goal['status'] == 'Active' ||
-              goal['status'] == 'Achieved';
+          return goal['status'] == 'Active';
         }).toList();
 
         _recentGoals = filteredGoals.take(3).toList();
@@ -70,13 +72,61 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint("dashboard error: $e");
     } finally {
-      // ensures loading stops even if an error occurs
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // helper to decide progress bar and text color based on goal status/percentage
-  // UPDATED: Matches Goals Hub teal
+  void _navigateToInstructions() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScanInstructionsScreen(
+          onSourceSelected: (source) {
+            Navigator.pop(context);
+            _performUpload(source);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _performUpload(ImageSource source) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? video = await picker.pickVideo(source: source);
+
+    if (video == null) return;
+
+    final token = await TokenStorage.getAccessToken();
+    final uri = Uri.parse("${ApiConfig.baseUrl}/api/analyze/");
+
+    final bytes = await video.readAsBytes();
+
+    var request = http.MultipartRequest('POST', uri);
+    request.headers.addAll({"Authorization": "Bearer $token"});
+
+    request.files.add(http.MultipartFile.fromBytes(
+      'video',
+      bytes,
+      filename: video.name,
+    ));
+
+    final response = await request.send();
+    if (response.statusCode == 202) {
+      final responseBody = await response.stream.bytesToString();
+      final data = jsonDecode(responseBody);
+      if (mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => AnalysisStatusScreen(sessionId: data['session_id'])),
+        );
+
+        _fetchDashboardData();
+      }
+    } else {
+      debugPrint("Upload failed with status: ${response.statusCode}");
+    }
+  }
+
   Color _getGoalColor(double progress, String status) {
     if (status == "Achieved") return Colors.green;
     if (progress < 0.3) return Colors.redAccent;
@@ -86,15 +136,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // pulls the username from nested profile data, defaulting to 'user'
     final String displayName = _userProfile?['user']?['username'] ?? "User";
-    // used to show/hide specific ui elements for first-time users
     bool isNewUser = _recentSessions.isEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.pureWhite,
       body: RefreshIndicator(
-        // allows user to pull down to refresh dashboard data
         onRefresh: _fetchDashboardData,
         color: AppColors.skeletonBlue,
         child: _isLoading
@@ -110,26 +157,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
-                    // hero card displays dynamic insights or a welcome message
                     _buildHeroCard(isNewUser),
                     SizedBox(height: 35),
-
                     _buildSectionHeader("Recovery Progress", "View All", () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => GoalsHubScreen()),
-                      ).then((_) => _fetchDashboardData()); // Refresh dashboard when coming back
+                      ).then((_) => _fetchDashboardData());
                     }),
                     _buildGoalsList(),
-
                     SizedBox(height: 35),
-
                     _buildSectionHeader("Recent Sessions", "View All", () {
-                      // TODO
-                      debugPrint("Navigate to Sessions History");
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => SessionHistoryScreen()),
+                      );
                     }),
                     _buildSessionsList(),
-
                     SizedBox(height: 100),
                   ],
                 ),
@@ -138,13 +182,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
-      // show fab only if user has existing sessions
       floatingActionButton: isNewUser ? null : FloatingActionButton.extended(
-        onPressed: () {
-          // TODO
-          debugPrint("Navigate to Instructions Screen");
-        },
+        onPressed: _navigateToInstructions,
         backgroundColor: AppColors.powderBlue,
         label: Text("NEW SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         icon: Icon(Icons.add_a_photo, color: Colors.white),
@@ -152,11 +191,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // custom app bar with profile icon and greeting
   Widget _buildAppBar(String name) {
-    // NEW: Check if profile picture exists in the fetched data
     final String? profilePicPath = _userProfile?['profile_pic'];
-
     return SliverAppBar(
       floating: true,
       backgroundColor: AppColors.pureWhite,
@@ -176,7 +212,6 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               child: CircleAvatar(
                 backgroundColor: AppColors.skeletonBlue.withOpacity(0.1),
-                // use NetworkImage if path exists (to show profile pic), otherwise show default icon
                 backgroundImage: profilePicPath != null
                     ? NetworkImage("${ApiConfig.baseUrl}$profilePicPath")
                     : null,
@@ -186,9 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
           SizedBox(width: 12),
-
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -196,26 +229,15 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(name, style: TextStyle(color: AppColors.onyxCharcoal, fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
-
           Spacer(),
-
-          // logo
-          Image.asset(
-            'assets/logo0_clear_bk.png',
-            height: 45,
-            fit: BoxFit.contain,
-          ),
-
+          Image.asset('assets/logo0_clear_bk.png', height: 45, fit: BoxFit.contain),
         ],
       ),
     );
   }
 
-  // hero section that uses insightservice to provide personalized feedback
   Widget _buildHeroCard(bool isNewUser) {
-    // get random or trend-based insight from our external service
     String description = InsightService.getLatestInsight(_recentSessions);
-
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(24),
@@ -235,13 +257,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(height: 8),
           Text(description, style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
-
           if (isNewUser) ...[
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                debugPrint("Navigate to Instructions Screen");
-              },
+              onPressed: _navigateToInstructions,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: AppColors.skeletonBlue,
@@ -255,97 +274,53 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // renders a list of active goals with progress bars
   Widget _buildGoalsList() {
-    if (_recentGoals.isEmpty) {
-      return _buildEmptyState("No active goals found.");
-    }
-
+    if (_recentGoals.isEmpty) return _buildEmptyState("No active goals found.");
     return Column(
       children: _recentGoals.map((goal) {
         final String status = goal['status'] ?? "Active";
         final String rawMetric = goal['metric_name'].toString();
         final config = GoalConfigs.metrics[rawMetric];
-
-        // Use GoalConfigs for naming consistency
         final String metricName = config?.displayName ?? rawMetric.replaceAll('_', ' ').toUpperCase();
-
         double target = double.tryParse(goal['target_value'].toString()) ?? 0.0;
         double latest = double.tryParse(goal['latest_value']?.toString() ?? goal['starting_value'].toString()) ?? 0.0;
-        double start = double.tryParse(goal['starting_value'].toString()) ?? 0.0;
-
-        // FIX: Scaling for stride consistency as in Goals Hub
         if (rawMetric == "stride_time_cv") {
           if (target < 1.0) target *= 100;
           if (latest < 1.0) latest *= 100;
-          if (start < 1.0) start *= 100;
         }
-
-        // FIX: Consistent progress logic from Goals Hub
         bool higherIsBetter = config?.higherIsBetter ?? true;
         double progress = 0.0;
-        if (higherIsBetter) {
-          progress = latest / target;
-        } else {
-          progress = target / latest;
+        if (target != 0.0) {
+          progress = (higherIsBetter ? (latest / target) : (target / latest)).clamp(0.0, 1.0);
         }
-
-        // clamp between 0.0 and 1.0 for the progress bar
-        progress = progress.clamp(0.0, 1.0);
         int percentage = (progress * 100).toInt();
         Color statusColor = _getGoalColor(progress, status);
-
-        // DESIGN UPDATED: Exactly like Goals Hub
         return Card(
-          margin: const EdgeInsets.only(bottom: 15),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: Colors.grey.shade100)
-          ),
+          margin: EdgeInsets.only(bottom: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => GoalDetailsScreen(goal: goal),
-                ),
-              ).then((_) => _fetchDashboardData());
+              Navigator.push(context, MaterialPageRoute(builder: (context) => GoalDetailsScreen(goal: goal))).then((_) => _fetchDashboardData());
             },
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                      metricName,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.skeletonBlue)
-                  ),
-                  const SizedBox(height: 12),
+                  Text(metricName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.skeletonBlue)),
+                  SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                          "Current: ${latest.toStringAsFixed(1)}${config?.unit ?? ''}",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
-                      ),
-                      Text(
-                          "Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
-                      ),
+                      Text("Current: ${latest.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(
-                      value: progress,
-                      color: statusColor,
-                      backgroundColor: Colors.grey.shade100
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                      "$percentage% Completed",
-                      style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)
-                  ),
+                  SizedBox(height: 12),
+                  LinearProgressIndicator(value: progress, color: statusColor, backgroundColor: Colors.grey.shade100),
+                  SizedBox(height: 8),
+                  Text("$percentage% Completed", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -355,59 +330,60 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // renders the history of gait analysis sessions
   Widget _buildSessionsList() {
-    if (_recentSessions.isEmpty) {
-      return _buildEmptyState("Record your first walk to see results.");
-    }
-
-    // calculates absolute session number based on total count from database
-    final int totalUserSessions = _recentSessions.length;
-
+    if (_recentSessions.isEmpty) return _buildEmptyState("Record your first walk to see results.");
     return ListView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
-      // limits the view to the 3 most recent sessions
       itemCount: _recentSessions.length > 3 ? 3 : _recentSessions.length,
       itemBuilder: (context, index) {
         final session = _recentSessions[index];
 
-        // session 1 is the oldest, session N is the latest
-        int sessionDisplayNum = totalUserSessions - index;
+        String formattedDate = "Unknown Date";
+        String formattedTime = "";
 
-        // extracts just the date part of the timestamp
-        String displayDate = session['session_date']?.toString().split('T')[0] ?? "Recent";
+        try {
+          final DateTime sessionDate = DateTime.parse(session['session_date']).toLocal();
+          final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+          formattedDate = "${weekdays[sessionDate.weekday - 1]}, ${months[sessionDate.month - 1]} ${sessionDate.day}";
+          int hour = sessionDate.hour > 12 ? sessionDate.hour - 12 : (sessionDate.hour == 0 ? 12 : sessionDate.hour);
+          String period = sessionDate.hour >= 12 ? "PM" : "AM";
+          String minute = sessionDate.minute.toString().padLeft(2, '0');
+          formattedTime = "Recorded at $hour:$minute $period";
+        } catch (e) {
+          debugPrint("Error parsing session date: $e");
+          formattedDate = "Invalid Date";
+          formattedTime = "N/A";
+        }
 
         return Card(
-          margin: EdgeInsets.only(bottom: 12),
+          margin: EdgeInsets.only(bottom: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
           elevation: 0,
-          color: Colors.grey.shade50,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-            side: BorderSide(color: Colors.grey.shade100),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(15),
-            onTap: () {
-              // TODO: Navigator.push(context, MaterialPageRoute(builder: (context) => SessionDetailsScreen(session: session)));
-              debugPrint("Navigate to Session Details for Session $sessionDisplayNum");
-            },
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: AppColors.skeletonBlue.withOpacity(0.1),
-                child: Text("$sessionDisplayNum", style: TextStyle(color: AppColors.skeletonBlue, fontWeight: FontWeight.bold)),
-              ),
-              title: Text("Gait Analysis", style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text("Date: $displayDate"),
-              trailing: Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.terrainGrey),
+          child: ListTile(
+            contentPadding: EdgeInsets.all(15),
+            leading: Container(
+              width: 50, height: 50,
+              decoration: BoxDecoration(color: AppColors.skeletonBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+              child: Icon(Icons.directions_walk, color: AppColors.skeletonBlue),
             ),
+            title: Text(formattedDate, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal, fontSize: 16)),
+            subtitle: Text(formattedTime, style: TextStyle(color: Colors.grey, fontSize: 13)),
+            trailing: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey.shade400),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SessionDetailsScreen(sessionId: session['id'])),
+              ).then((_) => _fetchDashboardData());
+            },
           ),
         );
       },
     );
   }
 
-  // simple centered text placeholder for when lists are empty
   Widget _buildEmptyState(String message) {
     return Center(
       child: Padding(
@@ -417,7 +393,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // standardized header for each major section (progress, sessions)
   Widget _buildSectionHeader(String title, String action, VoidCallback onActionTap) {
     return Padding(
       padding: EdgeInsets.only(bottom: 16),

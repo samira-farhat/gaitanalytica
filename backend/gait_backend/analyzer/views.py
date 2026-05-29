@@ -129,12 +129,23 @@ def check_goal_achievement(user, analysis):
 
         # if goal is achieved
         if achieved:
-            goal.status= "Achieved"
+            goal.status = "Achieved"
+            goal.achieved_value = current_value
+            goal.achieved_date = timezone.now()
             goal.save()
+
+
+# function to smooth the angles to ensure jumpy frames dont ruin anything
+def smooth_list(data, window_size=3):
+    if len(data) < window_size: return data
+    return np.convolve(data, np.ones(window_size)/window_size, mode='valid').tolist()
 
 
 # to process the uploaded video
 def process_analysis(session_id):
+
+    pose = None
+    cap = None
     
     try: 
         session= GaitSession.objects.get(id=session_id)
@@ -196,8 +207,8 @@ def process_analysis(session_id):
                 step_lengths.append(step_dist / leg_len if leg_len > 0 else 0)
 
         # cleanup resources
-        pose.close()
-        cap.release()
+        #pose.close()
+        #cap.release()
 
 
         if landmark_frames == 0:
@@ -217,14 +228,19 @@ def process_analysis(session_id):
         # 2. Step/Knee Symmetry (Frame-by-frame average)
         avg_knee_symmetry = np.mean(knee_symmetry_diffs) if knee_symmetry_diffs else 0
    
+        # smoothed angles
+        smoothed_left = smooth_list(left_angles)
+        smoothed_right = smooth_list(right_angles)
+
+
         # 3. Knee Range of Motion (ROM)
-        l_rom = max(left_angles) - min(left_angles) if left_angles else 0
-        r_rom = max(right_angles) - min(right_angles) if right_angles else 0
+        l_rom = max(smoothed_left) - min(smoothed_left) if smoothed_left else 0
+        r_rom = max(smoothed_right) - min(smoothed_right) if smoothed_right else 0
         avg_rom = (l_rom + r_rom) / 2
 
 
         # PEAK DETECTION (For Spatial/Temporal)
-        peaks, _ = find_peaks(step_lengths, height=0.35, distance=int(fps * 0.5), prominence=0.05)
+        peaks, _ = find_peaks(step_lengths, height=0.25, distance=int(fps * 0.4), prominence=0.1)
         step_indices = peaks.tolist()
         peak_values = [step_lengths[i] for i in step_indices]
 
@@ -247,11 +263,31 @@ def process_analysis(session_id):
 
         # 7. Stride Time
         stride_times = [(step_indices[i] - step_indices[i-1]) / fps for i in range(1, len(step_indices))]
+        
+        # filter outliers (noise reduction)
+        if len(stride_times) > 3:
+            q1= np.percentile(stride_times, 25)
+            q3= np.percentile(stride_times, 75)
+            iqr= q3 - q1
+
+            lower_bound= q1 - (1.5 * iqr)
+            upper_bound= q3 + (1.5 * iqr)
+
+            # keep only the actual real strides
+            filtered_stride_times= [t for t in stride_times if lower_bound <=t <= upper_bound]
+
+            # using the data (if we still have any) after filtering
+            if len(filtered_stride_times) >= 2:
+                stride_times= filtered_stride_times
+
+
         avg_stride_time = np.mean(stride_times) if stride_times else 0
 
         # 8. Stride Time Variability (CV)
         stride_std = np.std(stride_times) if stride_times else 0
-        stride_cv = stride_std / avg_stride_time if avg_stride_time > 0 else 0
+
+        # calculate cv as decimal
+        stride_cv = stride_std / avg_stride_time if avg_stride_time > 0.0001 else 0
 
         end_time= time.time()
 
@@ -304,6 +340,13 @@ def process_analysis(session_id):
             analysis.save()
 
         print(e)
+
+    finally:
+        if pose is not None:
+            pose.close()
+        if cap is not None:
+            cap.release()
+
 
 
 
@@ -874,11 +917,15 @@ def get_goals(request):
 
                     if latest_value >= goal.target_value:
                         goal.status = "Achieved"
+                        goal.achieved_value = latest_value
+                        goal.achieved_date = timezone.now()
 
                 else:
 
                     if latest_value <= goal.target_value:
                         goal.status = "Achieved"
+                        goal.achieved_value = latest_value
+                        goal.achieved_date = timezone.now()
 
                 goal.save()
 
@@ -902,6 +949,10 @@ def get_goals(request):
             "latest_value": latest_value,
 
             "status": goal.status,
+
+            "achieved_value": goal.achieved_value,
+            
+            "achieved_date": goal.achieved_date,
 
             "start_date": goal.start_date,
 
@@ -971,11 +1022,15 @@ def get_goal_details(request, goal_id):
 
                     if latest_value >= goal.target_value:
                         goal.status = "Achieved"
+                        goal.achieved_value = latest_value
+                        goal.achieved_date = timezone.now()
 
                 else:
 
                     if latest_value <= goal.target_value:
                         goal.status = "Achieved"
+                        goal.achieved_value = latest_value
+                        goal.achieved_date = timezone.now()
 
                 goal.save()
 
@@ -1003,6 +1058,10 @@ def get_goal_details(request, goal_id):
 
         "status": goal.status,
 
+        "achieved_value": goal.achieved_value,
+        
+        "achieved_date": goal.achieved_date,
+
         "start_date": goal.start_date,
 
         "end_date": goal.end_date,
@@ -1014,8 +1073,6 @@ def get_goal_details(request, goal_id):
 @api_view(['PUT', 'PATCH'])
 # to update a specific goal
 @permission_classes([IsAuthenticated])
-
-# to update a specific goal
 def update_goal(request, goal_id):
 
     try:
@@ -1208,6 +1265,10 @@ def update_goal(request, goal_id):
 
             "status": goal.status,
 
+            "achieved_value": goal.achieved_value,
+            
+            "achieved_date": goal.achieved_date,
+
             "start_date": goal.start_date,
 
             "end_date": goal.end_date,
@@ -1238,9 +1299,6 @@ def cancel_goal(request, goal_id):
             {"error": "Cannot cancel an achieved goal"},
             status=400
         )
-    
-    goal.status = "Cancelled"
-    goal.save()
 
     # get latest session
     latest_session = GaitSession.objects.filter(
@@ -1272,6 +1330,10 @@ def cancel_goal(request, goal_id):
         except GaitAnalysis.DoesNotExist:
             pass
 
+    goal.status = "Cancelled"
+    goal.achieved_value = latest_value
+    goal.achieved_date = timezone.now()
+    goal.save()
 
     return Response({
 
@@ -1297,6 +1359,10 @@ def cancel_goal(request, goal_id):
             "latest_value": latest_value,
 
             "status": goal.status,
+
+            "achieved_value": goal.achieved_value,
+            
+            "achieved_date": goal.achieved_date,
 
             "start_date": goal.start_date,
 
@@ -1467,6 +1533,13 @@ def goal_trend(request, goal_id):
         user=request.user
     ).order_by('session_date')
 
+    if goal.status in ["Achieved", "Cancelled"]:
+
+        cutoff_date = goal.achieved_date or goal.end_date
+
+        if cutoff_date:
+            sessions = sessions.filter(session_date__lte=cutoff_date)
+
     data_points = []
 
     higher_is_better = None
@@ -1517,7 +1590,12 @@ def goal_trend(request, goal_id):
 
     # first and last values
     start_value = data_points[0]["value"]
-    end_value = data_points[-1]["value"]
+   
+    if goal.status in ["Achieved", "Cancelled"] and goal.achieved_value is not None:
+        end_value = goal.achieved_value
+    else:
+        end_value = data_points[-1]["value"]
+
 
     change = end_value - start_value
 

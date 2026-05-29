@@ -105,20 +105,18 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // determine the correct endpoint based on purpose
-      final url = widget.isPasswordReset
-          ? '${ApiConfig.baseUrl}/api/verify-otp/' // you can use a specific verify-reset-otp if you created one
-          : '${ApiConfig.baseUrl}/api/verify-otp/';
-
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse('${ApiConfig.baseUrl}/api/verify-otp/'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "email": widget.email,
           "otp": otp,
-          "purpose": widget.isPasswordReset ? "password_reset" : "registration", // send purpose
+          "purpose": widget.isPasswordReset ? "password_reset" : "registration",
         }),
       );
+
+      // Guard: Ensure screen is still active
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         setState(() {
@@ -126,21 +124,14 @@ class _OtpScreenState extends State<OtpScreen> {
           _infoMessage = "Code verified successfully";
         });
 
-        // navigate based on context
         Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return; // Guard: Final check before navigation
           if (widget.isPasswordReset) {
-            // go to reset password screen
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => ResetPasswordScreen(
-                  email: widget.email,
-                  otp: otp,
-                ),
-              ),
+              MaterialPageRoute(builder: (context) => ResetPasswordScreen(email: widget.email, otp: otp)),
             );
           } else {
-            // go to login screen
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -155,13 +146,15 @@ class _OtpScreenState extends State<OtpScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = ApiResponseHandler.handleError({"error": e.toString()}, 500);
       });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   // function to resend otp
   Future<void> _resendOtp() async {
@@ -172,16 +165,17 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      // check if resend needs a different endpoint for reset
       final url = widget.isPasswordReset
-          ? '${ApiConfig.baseUrl}/api/password-reset-request/' // resending reset code
-          : '${ApiConfig.baseUrl}/api/resend-otp/'; // resending registration code
+          ? '${ApiConfig.baseUrl}/api/password-reset-request/'
+          : '${ApiConfig.baseUrl}/api/resend-otp/';
 
       final response = await http.post(
         Uri.parse(url),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"email": widget.email}),
       );
+
+      if (!mounted) return; // Guard
 
       if (response.statusCode == 200) {
         setState(() {
@@ -198,13 +192,15 @@ class _OtpScreenState extends State<OtpScreen> {
         if (response.statusCode == 429) _startResendCooldown();
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = ApiResponseHandler.handleError({"error": e.toString()}, 500);
       });
     } finally {
-      setState(() => _isResending = false);
+      if (mounted) setState(() => _isResending = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

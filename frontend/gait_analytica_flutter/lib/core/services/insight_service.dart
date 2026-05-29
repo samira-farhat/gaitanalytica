@@ -2,12 +2,23 @@ import 'dart:math';
 
 class InsightService {
   static String getLatestInsight(List<dynamic> sessions) {
+
     if (sessions.isEmpty) {
       return "Welcome! Start your first analysis to begin monitoring your journey.";
     }
 
-    if (sessions.length == 1) {
-      return "First session logged! Record a second walk whenever you're ready to see your first progress comparison.";
+    bool isSessionComplete(dynamic s) {
+      return s['cadence_bpm'] != null &&
+          s['avg_rom'] != null &&
+          s['knee_symmetry_diff'] != null &&
+          s['stride_time_cv'] != null;
+    }
+
+    // Only keep sessions that have all metrics present
+    List<dynamic> completeSessions = sessions.where(isSessionComplete).toList();
+
+    if (completeSessions.length < 2) {
+      return "Keep recording! We need at least two complete sessions to analyze your progress.";
     }
 
     // 1. Prepare Data
@@ -23,6 +34,10 @@ class InsightService {
     double preSymm = _toDouble(previous['knee_symmetry_diff']);
     double latCV = _toDouble(latest['stride_time_cv']);
     double preCV = _toDouble(previous['stride_time_cv']);
+
+    if (latCadence == 0.0 || preCadence == 0.0) {
+      return "Keep recording! We need more data to provide insights on your walking rhythm.";
+    }
 
     // 2. Build a List of Possible "Smart" Insights
     List<String> validInsights = [];

@@ -51,23 +51,29 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         }),
       );
 
-      final data = jsonDecode(response.body);
+      // Guard: Check if screen is still active after the request
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
-        // success → go back to login screen
+        // Success → Navigate to the root (Login screen)
         Navigator.popUntil(context, (route) => route.isFirst);
       } else {
+        final data = jsonDecode(response.body);
         setState(() {
-          _errorMessage = data['error'] ?? "failed to reset password";
+          _errorMessage = data['error'] ?? "Failed to reset password";
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _errorMessage = "connection error. please try again.";
+        _errorMessage = "Connection error. Please try again.";
       });
+    } finally {
+      // Guard: Ensure we only update state if still mounted
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-
-    setState(() => _isLoading = false);
   }
 
   @override

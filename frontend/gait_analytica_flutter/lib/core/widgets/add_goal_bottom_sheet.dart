@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../../core/config/api_config.dart';
-import '../../core/config/goal_config.dart';
-import '../../core/storage/token_storage.dart';
-import '../../core/theme/app_colors.dart';
+import '../config/api_config.dart';
+import '../config/goal_config.dart';
+import '../storage/token_storage.dart';
+import '../theme/app_colors.dart';
 
 class AddGoalBottomSheet extends StatefulWidget {
   final VoidCallback onGoalAdded;
@@ -96,6 +96,29 @@ class _AddGoalBottomSheetState extends State<AddGoalBottomSheet> {
     if (targetVal < config.minSafe || targetVal > config.maxSafe) {
       setState(() => _targetError = "Limit: ${config.minSafe}-${config.maxSafe}");
       return;
+    }
+
+    double? latest = double.tryParse(widget.latestValues[_selectedMetricKey]?.toString() ?? "");
+
+    if (_selectedMetricKey == "stride_time_cv" && latest != null && latest < 1.0) {
+      latest *= 100;
+    }
+
+    if (latest != null && latest > 0) {
+      // Use ! to tell Dart latest is definitely not null here
+      String latestString = latest.toStringAsFixed(_selectedMetricKey == 'avg_step_length_norm' ? 2 : 1);
+
+      if (config.higherIsBetter) {
+        if (targetVal <= latest) {
+          setState(() => _targetError = "Target must be > current ($latestString)");
+          return;
+        }
+      } else {
+        if (targetVal >= latest) {
+          setState(() => _targetError = "Target must be < current ($latestString)");
+          return;
+        }
+      }
     }
 
     if (_dateController.text.isNotEmpty) {
@@ -242,7 +265,9 @@ class _AddGoalBottomSheetState extends State<AddGoalBottomSheet> {
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(color: AppColors.skeletonBlue.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
               child: Text(
-                "Latest Value: ${latest?.toStringAsFixed(1) ?? 'N/A'}${config!.unit}\nAim for ${config.higherIsBetter ? 'higher' : 'lower'} (Safe: ${config.minSafe}-${config.maxSafe}${config.unit})",
+                config != null
+                    ? "Latest Value: ${latest?.toStringAsFixed(1) ?? 'N/A'}${config.unit}\nAim for ${config.higherIsBetter ? 'higher' : 'lower'} (Safe: ${config.minSafe}-${config.maxSafe}${config.unit})"
+                    : "Select a metric to see details.",
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),
             ),
@@ -254,7 +279,7 @@ class _AddGoalBottomSheetState extends State<AddGoalBottomSheet> {
               keyboardType: TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
                 labelText: "Target Value",
-                suffixText: config.unit,
+                suffixText: config?.unit,
                 border: OutlineInputBorder(),
                 errorText: _targetError.isEmpty ? null : _targetError,
               ),

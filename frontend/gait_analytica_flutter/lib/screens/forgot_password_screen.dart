@@ -50,23 +50,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         body: jsonEncode({"email": _emailController.text.trim()}),
       );
 
-      final data = jsonDecode(response.body);
+      // Safe decoding
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode == 200) {
         return ResetRequestResult(
           success: true,
-          message: data['message'] ?? "code sent to email",
+          message: data['message']?.toString() ?? "Code sent to email",
         );
       } else {
+        // Use ?? to handle cases where the 'error' key might be missing
+        String errorMsg = data['error']?.toString() ?? data['detail']?.toString() ?? "Email does not exist";
         return ResetRequestResult(
           success: false,
-          message: data['error'] ?? "email does not exist",
+          message: errorMsg,
         );
       }
     } catch (e) {
       return ResetRequestResult(
         success: false,
-        message: "connection error",
+        message: "Connection error",
       );
     } finally {
       setState(() => _isLoading = false);
