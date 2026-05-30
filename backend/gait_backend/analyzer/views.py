@@ -688,6 +688,18 @@ def get_session_details(request, session_id):
     })
 
 
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+# to remove a session that is not correct
+def discard_session(request, session_id):
+    try:
+        session = GaitSession.objects.get(id=session_id, user=request.user)
+        session.delete()
+        return Response({"message": "Session discarded"}, status=200)
+    except GaitSession.DoesNotExist:
+        return Response({"error": "Not found"}, status=404)
+
+
 
 
 # API 4 - profile
