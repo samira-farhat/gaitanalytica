@@ -237,6 +237,11 @@ class UserGoal(models.Model):
         null=True
     )
 
+    final_value = models.FloatField(
+        null=True, 
+        blank=True
+    )
+
     start_date = models.DateTimeField(auto_now_add=True)
 
     end_date = models.DateField(
@@ -273,3 +278,29 @@ class EmailVerification(models.Model):
     def can_resend(self):
         # resend allowed after 60 seconds
         return timezone.now() > self.last_sent + timedelta(seconds=60)
+    
+
+
+class Notification(models.Model):
+
+    NOTIFICATION_TYPES = (
+        ('goal', 'Goal Update'),
+        ('session', 'Session Reminder'),
+        ('achievement', 'Achievement Unlocked'),
+        ('system', 'System Alert'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='system')
+    
+    # Deep-linking: Where should the user go when they click?
+    target_screen = models.CharField(max_length=100, blank=True, null=True) 
+    target_id = models.CharField(max_length=100, blank=True, null=True)     
+    
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']

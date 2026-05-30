@@ -32,7 +32,7 @@ class GoalConfigs {
       displayName: "Knee Symmetry",
       unit: "°",
       higherIsBetter: false, // Lower difference is closer to perfect symmetry
-      minSafe: 0.0,
+      minSafe: 1.0,
       maxSafe: 15.0,
       icon: Icons.balance,
     ),

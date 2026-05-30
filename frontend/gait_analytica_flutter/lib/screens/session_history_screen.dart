@@ -1,8 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:gait_analytica_flutter/screens/scan_instructions_screen.dart';
 import 'package:gait_analytica_flutter/screens/session_details_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import '../core/config/api_config.dart';
 import '../core/models/gait_session_model.dart';
 import '../core/services/api_service.dart';
+import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
+import 'analysis_status_screen.dart';
 
 class SessionHistoryScreen extends StatefulWidget {
   const SessionHistoryScreen({super.key});
@@ -15,6 +23,7 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
   bool isDescending = true;
   List<GaitSession>? _sessions;
   bool _isLoading = true;
+
 
   @override
   void initState() {
@@ -59,6 +68,57 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
     return "$hour:$minute $period";
   }
 
+
+  Future<void> _performUpload(ImageSource source) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? video = await picker.pickVideo(source: source);
+
+    if (video == null) return;
+
+    final token = await TokenStorage.getAccessToken();
+    final uri = Uri.parse("${ApiConfig.baseUrl}/api/analyze/");
+
+    final bytes = await video.readAsBytes();
+
+    var request = http.MultipartRequest('POST', uri);
+    request.headers.addAll({"Authorization": "Bearer $token"});
+
+    request.files.add(http.MultipartFile.fromBytes(
+      'video',
+      bytes,
+      filename: video.name,
+    ));
+
+    final response = await request.send();
+    if (response.statusCode == 202) {
+      final responseBody = await response.stream.bytesToString();
+      final data = jsonDecode(responseBody);
+      if (mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => AnalysisStatusScreen(sessionId: data['session_id'])),
+        );
+        _fetchSessions();
+      }
+    } else {
+      debugPrint("Upload failed with status: ${response.statusCode}");
+    }
+  }
+
+  void _navigateToInstructions() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScanInstructionsScreen(
+          onSourceSelected: (source) {
+            Navigator.pop(context); // Close the source picker
+            _performUpload(source); // You'll need to copy the _performUpload logic here too
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,6 +156,11 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
         itemBuilder: (context, index) {
           return _buildSessionCard(_sessions![index]);
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _navigateToInstructions,
+        backgroundColor: AppColors.midnightNavy,
+        child: Icon(Icons.add_a_photo, color: Colors.white, size: 23,),
       ),
     );
   }
@@ -136,7 +201,12 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
             MaterialPageRoute(
               builder: (context) => SessionDetailsScreen(sessionId: session.id),
             ),
-          );
+          ).then((wasDeleted) {
+            // This runs when you come back from the details screen
+            if (wasDeleted == true) {
+              _fetchSessions(); // Refresh the list to remove the deleted item
+            }
+          });
         },
       ),
     );

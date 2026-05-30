@@ -5,7 +5,7 @@ import math
 from scipy.signal import find_peaks
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 import time
@@ -17,9 +17,9 @@ from .models import (
     SpatialMetric,
     TemporalMetric,
     UserGoal,
-    EmailVerification
+    EmailVerification,
+    Notification
 )
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     GaitSessionSerializer, 
@@ -29,16 +29,19 @@ from .serializers import (
     TemporalMetricSerializer, 
     UserProfileSerializer, 
     UserGoalSerializer,
-    CustomTokenObtainPairSerializer
+    CustomTokenObtainPairSerializer,
+    NotificationSerializer
 )
 from .models import UserProfile
-from datetime import datetime
+from datetime import date, datetime
 from django.utils import timezone
 from datetime import timedelta
 import threading
 import random
 from django.core.mail import send_mail
 from django.conf import settings
+
+from rest_framework import viewsets, status
 
 
 
@@ -75,6 +78,15 @@ def calculate_symmetry_index(v1, v2):
 # function to check if the users goal was achieved
 def check_goal_achievement(user, analysis):
 
+    Notification.objects.create(
+        user=user,
+        target_id=analysis.session.id,
+        notification_type='session',
+        title="Analysis Complete",
+        message="Your gait analysis is ready to view.",
+        target_screen='SessionDetail'
+    )
+
     # get all active goals for this user
     active_goals= UserGoal.objects.filter(
         user=user,
@@ -84,6 +96,7 @@ def check_goal_achievement(user, analysis):
     for goal in active_goals:
 
         current_value= None
+        achieved= False
 
         # KINEMATIC
         if goal.metric_name == "avg_rom":
@@ -129,10 +142,21 @@ def check_goal_achievement(user, analysis):
 
         # if goal is achieved
         if achieved:
+            goal.final_value = current_value
+            goal.achieved_value= current_value
             goal.status = "Achieved"
-            goal.achieved_value = current_value
             goal.achieved_date = timezone.now()
+            goal.end_date = timezone.now().date()
             goal.save()
+
+            Notification.objects.create(
+                user=user,
+                target_id=goal.id,
+                notification_type='achievement',
+                title="Goal Achieved! ",
+                message=f"Amazing! You reached your {goal.get_metric_name_display()} target.",
+                target_screen='GoalDetail'
+            )
 
 
 # function to smooth the angles to ensure jumpy frames dont ruin anything
@@ -140,6 +164,9 @@ def smooth_list(data, window_size=3):
     if len(data) < window_size: return data
     return np.convolve(data, np.ones(window_size)/window_size, mode='valid').tolist()
 
+
+def safe_mean(arr):
+    return float(np.mean(arr)) if len(arr) > 0 else None
 
 # to process the uploaded video
 def process_analysis(session_id):
@@ -222,11 +249,11 @@ def process_analysis(session_id):
         # JOINT KINEMATIC FEATURES
 
         # 1. Knee Angles (Averages)
-        avg_left = np.mean(left_angles) if left_angles else 0
-        avg_right = np.mean(right_angles) if right_angles else 0
+        avg_left = safe_mean(left_angles) or 0
+        avg_right = safe_mean(right_angles) or 0
    
         # 2. Step/Knee Symmetry (Frame-by-frame average)
-        avg_knee_symmetry = np.mean(knee_symmetry_diffs) if knee_symmetry_diffs else 0
+        avg_knee_symmetry = safe_mean(knee_symmetry_diffs) or 0
    
         # smoothed angles
         smoothed_left = smooth_list(left_angles)
@@ -248,7 +275,7 @@ def process_analysis(session_id):
         # SPATIAL FEATURES
 
         # 4. Step Length
-        avg_step_len = np.mean(step_lengths) if step_lengths else 0
+        avg_step_len = safe_mean(step_lengths) or 0
         max_step_len = max(step_lengths) if step_lengths else 0
 
         # 5. Step Length Symmetry (Comparing consecutive peaks)
@@ -700,8 +727,6 @@ def discard_session(request, session_id):
         return Response({"error": "Not found"}, status=404)
 
 
-
-
 # API 4 - profile
 
 # so django doesnt break if profile doesnt exist
@@ -930,6 +955,7 @@ def get_goals(request):
                     if latest_value >= goal.target_value:
                         goal.status = "Achieved"
                         goal.achieved_value = latest_value
+                        goal.final_value = latest_value
                         goal.achieved_date = timezone.now()
 
                 else:
@@ -937,6 +963,7 @@ def get_goals(request):
                     if latest_value <= goal.target_value:
                         goal.status = "Achieved"
                         goal.achieved_value = latest_value
+                        goal.final_value = latest_value
                         goal.achieved_date = timezone.now()
 
                 goal.save()
@@ -965,6 +992,8 @@ def get_goals(request):
             "achieved_value": goal.achieved_value,
             
             "achieved_date": goal.achieved_date,
+
+            "final_value": goal.final_value,
 
             "start_date": goal.start_date,
 
@@ -1035,6 +1064,7 @@ def get_goal_details(request, goal_id):
                     if latest_value >= goal.target_value:
                         goal.status = "Achieved"
                         goal.achieved_value = latest_value
+                        goal.final_value = latest_value
                         goal.achieved_date = timezone.now()
 
                 else:
@@ -1042,6 +1072,7 @@ def get_goal_details(request, goal_id):
                     if latest_value <= goal.target_value:
                         goal.status = "Achieved"
                         goal.achieved_value = latest_value
+                        goal.final_value = latest_value
                         goal.achieved_date = timezone.now()
 
                 goal.save()
@@ -1060,13 +1091,13 @@ def get_goal_details(request, goal_id):
 
         "metric_name": goal.metric_name,
 
-        "target_value": goal.target_value,
-
-        # original value when goal started
         "starting_value": goal.current_value_at_start,
 
-        # latest session value
-        "latest_value": latest_value,
+        "target_value": goal.target_value,
+
+        "current_value": latest_value,
+
+        "final_value": goal.final_value,
 
         "status": goal.status,
 
@@ -1343,8 +1374,8 @@ def cancel_goal(request, goal_id):
             pass
 
     goal.status = "Cancelled"
-    goal.achieved_value = latest_value
-    goal.achieved_date = timezone.now()
+    goal.final_value = latest_value
+    goal.end_date = timezone.now().date()
     goal.save()
 
     return Response({
@@ -1372,7 +1403,7 @@ def cancel_goal(request, goal_id):
 
             "status": goal.status,
 
-            "achieved_value": goal.achieved_value,
+            "final_value": goal.final_value,
             
             "achieved_date": goal.achieved_date,
 
@@ -1601,15 +1632,17 @@ def goal_trend(request, goal_id):
         }, status=400)
 
     # first and last values
-    start_value = data_points[0]["value"]
+    start_value = goal.current_value_at_start
    
     if goal.status in ["Achieved", "Cancelled"] and goal.achieved_value is not None:
-        end_value = goal.achieved_value
+        end_value = goal.final_value
     else:
         end_value = data_points[-1]["value"]
 
+    start_value = start_value if start_value is not None else 0.0
+    end_value = end_value if end_value is not None else 0.0
 
-    change = end_value - start_value
+    change = float(end_value) - float(start_value)
 
     # determine trend direction
     if higher_is_better:
@@ -1639,3 +1672,81 @@ def goal_trend(request, goal_id):
     })
 
 
+# API 7 - notifications
+
+from datetime import date
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Notification, UserGoal, GaitSession
+from .serializers import NotificationSerializer
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        today = date.today()
+
+        # 1. GOAL DEADLINES: Check for goals due today or already passed
+        expired_goals = UserGoal.objects.filter(
+            user=user, 
+            end_date__lte=today, 
+            status='Active'
+        )
+        
+        for goal in expired_goals:
+            Notification.objects.get_or_create(
+                user=user,
+                target_id=str(goal.id),
+                notification_type='goal',
+                title="Goal Deadline Reached!",
+                defaults={
+                    'message': f"Today is the deadline for your {goal.get_metric_name_display()} goal. Tap to review.",
+                    'target_screen': 'GoalDetail',
+                    'is_read': False
+                }
+            )
+
+        # 2. INACTIVITY: Check if user hasn't had a session in 3 days
+        last_session = GaitSession.objects.filter(user=user).order_by('-session_date').first()
+        if last_session:
+            days_since = (today - last_session.session_date.date()).days
+            if days_since >= 3:
+                Notification.objects.get_or_create(
+                    user=user,
+                    notification_type='system',
+                    title="Consistency is Key!",
+                    message="It's been 3 days since your last gait analysis. Ready for a scan?",
+                    defaults={
+                        'target_screen': 'ScanInstructions',
+                        'is_read': False
+                    }
+                )
+
+        # Return all notifications belonging to the user
+        return Notification.objects.filter(user=user).order_by('-created_at')
+
+    # Endpoint: mark all as read
+    @action(detail=False, methods=['post'], url_path='mark-all-read')
+    def mark_all_as_read(self, request):
+        queryset = self.get_queryset().filter(is_read=False)
+        count = queryset.count()
+        queryset.update(is_read=True)
+        return Response({
+            'message': f'{count} notifications marked as read.',
+            'unread_count': 0
+        }, status=status.HTTP_200_OK)
+
+    # Endpoint: mark a specific notification as read
+    @action(detail=True, methods=['post'], url_path='mark-read')
+    def mark_as_read(self, request, pk=None):
+        try:
+            notification = self.get_object()
+            notification.is_read = True
+            notification.save()
+            return Response({'status': 'notification marked as read'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)

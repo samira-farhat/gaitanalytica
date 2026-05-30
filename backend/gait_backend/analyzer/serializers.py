@@ -7,7 +7,8 @@ from .models import (
     KinematicMetric,
     SpatialMetric,
     TemporalMetric,
-    UserGoal
+    UserGoal, 
+    Notification
 )
 
 from django.contrib.auth.models import User
@@ -177,3 +178,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # continue normal jwt login
         return super().validate(attrs)
+    
+
+class NotificationSerializer(serializers.ModelSerializer):
+   
+    notification_type_display = serializers.CharField(source='get_notification_type_display', read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'title', 'message', 'notification_type', 
+            'notification_type_display', 'target_screen', 
+            'target_id', 'is_read', 'created_at'
+        ]

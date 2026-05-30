@@ -307,10 +307,15 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
       latest = double.tryParse(_currentGoal['achieved_value']?.toString() ?? _currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
     }
 
+    double starting = double.tryParse(
+        _currentGoal['starting_value']?.toString() ?? "0"
+    ) ?? 0.0;
+
 
     if (rawMetric == "stride_time_cv") {
       if (target < 1.0) target *= 100;
       if (latest < 1.0) latest *= 100;
+      if (starting < 1.0) starting *= 100;
     }
 
     bool higherIsBetter = config.higherIsBetter;
@@ -329,11 +334,15 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     // Use 2 decimals for Step Efficiency
     final String targetDisp = isStride
         ? "${target.toStringAsFixed(1)}%"
-        : "${target.toStringAsFixed(isStep ? 2 : 1)}${config.unit}";
+        : "${target.toStringAsFixed(isStep ? 2 : 2)}${config.unit}";
 
     final String currentDisp = isStride
         ? "${latest.toStringAsFixed(1)}%"
-        : "${latest.toStringAsFixed(isStep ? 2 : 1)}${config.unit}";
+        : "${latest.toStringAsFixed(isStep ? 2 : 2)}${config.unit}";
+
+    final String startingDisp = isStride
+        ? "${starting.toStringAsFixed(1)}%"
+        : "${starting.toStringAsFixed(isStep ? 2 : 2)}${config.unit}";
 
     return Scaffold(
       backgroundColor: AppColors.pureWhite,
@@ -362,7 +371,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                   ),
                   Column(
                     children: [
-                      Text("${(progress * 100).toInt()}%", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
+                      Text("${(progress * 100).toStringAsFixed(progress < 1.0 && progress > 0.99 ? 1 : 0)}%", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
                       Text(status.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: progressColor)),
                     ],
                   ),
@@ -404,8 +413,13 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                   children: [
                     _buildInfoRow("Current Value", currentDisp),
                     const Divider(height: 30),
+
+                    _buildInfoRow("Starting Value", startingDisp),
+                    const Divider(height: 30),
+
                     _buildInfoRow("Target Value", targetDisp),
                     const Divider(height: 30),
+
                     _buildInfoRow("Target Date", _currentGoal['end_date'] != null
                         ? _formatReadable(DateTime.parse(_currentGoal['end_date']))
                         : "Not set"),

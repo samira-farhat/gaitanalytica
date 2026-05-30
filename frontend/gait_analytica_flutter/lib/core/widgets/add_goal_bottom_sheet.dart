@@ -106,7 +106,7 @@ class _AddGoalBottomSheetState extends State<AddGoalBottomSheet> {
 
     if (latest != null && latest > 0) {
       // Use ! to tell Dart latest is definitely not null here
-      String latestString = latest.toStringAsFixed(_selectedMetricKey == 'avg_step_length_norm' ? 2 : 1);
+      String latestString = latest.toStringAsFixed(2);
 
       if (config.higherIsBetter) {
         if (targetVal <= latest) {
@@ -266,7 +266,7 @@ class _AddGoalBottomSheetState extends State<AddGoalBottomSheet> {
               decoration: BoxDecoration(color: AppColors.skeletonBlue.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
               child: Text(
                 config != null
-                    ? "Latest Value: ${latest?.toStringAsFixed(1) ?? 'N/A'}${config.unit}\nAim for ${config.higherIsBetter ? 'higher' : 'lower'} (Safe: ${config.minSafe}-${config.maxSafe}${config.unit})"
+                    ? "Latest Value: ${latest?.toStringAsFixed(2) ?? 'N/A'}${config.unit}\nAim for ${config.higherIsBetter ? 'higher' : 'lower'} (Safe: ${config.minSafe}-${config.maxSafe}${config.unit})"
                     : "Select a metric to see details.",
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               ),

@@ -48,35 +48,13 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
+          debugPrint(jsonEncode(data));
           String status = data['status'] ?? "Processing";
 
           if (mounted) setState(() => _status = status);
 
           if (status == "Completed") {
             timer.cancel();
-
-            // --- START METRIC VALIDATION ---
-            final metrics = data['analysis_results'];
-            // Access nested metrics safely
-            double rom = double.tryParse(metrics?['kinematics']?['avg_rom']?.toString() ?? '0') ?? 0;
-            double cadence = double.tryParse(metrics?['temporal']?['cadence_bpm']?.toString() ?? '0') ?? 0;
-
-            if (rom == 0 || cadence == 0) {
-              await _discardBadSession(); // Remove from DB so it doesn't pollute history
-
-              String errorTitle = "Low Quality Scan";
-              String errorMsg = "The AI couldn't track your movement accurately.";
-
-              if (rom == 0) {
-                errorMsg = "We couldn't detect your leg joints clearly. Please ensure your full body is visible from the side in a well-lit area.";
-              } else if (cadence == 0) {
-                errorMsg = "We couldn't detect a steady walking rhythm. Please walk naturally at a steady pace for at least 15 seconds.";
-              }
-
-              if (mounted) _showQualityErrorDialog(errorTitle, errorMsg);
-              return;
-            }
-            // --- END METRIC VALIDATION ---
 
             if (mounted) {
               Navigator.pushReplacement(
@@ -86,7 +64,15 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
             }
           } else if (status.toLowerCase().contains("failed")) {
             timer.cancel();
-            _showErrorDialog(status);
+
+            await _discardBadSession(); // 🔥 IMPORTANT
+
+            if (!mounted) return;
+
+            _showQualityErrorDialog(
+              "Analysis Failed",
+              status,
+            );
           }
         } else {
           timer.cancel();
@@ -103,27 +89,53 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Back to Home
-            },
-            child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(30.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber_rounded, size: 70, color: Colors.orange),
+              const SizedBox(height: 20),
+              Text(
+                "Low Quality Analysis", // Centered and normal weight
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  color: AppColors.onyxCharcoal,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 15, height: 1.4),
+              ),
+              const SizedBox(height: 35),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.midnightNavy,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(context); // Close the dialog
+                  Navigator.pop(context); // Back to Scan Instructions
+                },
+                child: const Text("RE-SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close the dialog
+                  Navigator.of(context).popUntil((route) => route.isFirst); // Back to Home
+                },
+                child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+              ),
+            ],
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.skeletonBlue),
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Back to Home/Instructions
-            },
-            child: const Text("RE-SCAN", style: TextStyle(color: Colors.white)),
-          ),
-        ],
+        ),
       ),
     );
   }

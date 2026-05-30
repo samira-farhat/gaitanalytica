@@ -16,6 +16,7 @@ import '../core/theme/app_colors.dart';
 import '../core/services/insight_service.dart';
 import 'goal_details_screen.dart';
 import 'goals_hub_screen.dart';
+import 'notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _userProfile;
   List<dynamic> _recentSessions = [];
   List<dynamic> _recentGoals = [];
+  int _unreadCount = 0; // Added for the notification badge
 
   @override
   void initState() {
@@ -52,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
         http.get(Uri.parse("${ApiConfig.baseUrl}/api/profile/"), headers: headers),
         http.get(Uri.parse("${ApiConfig.baseUrl}/api/sessions/"), headers: headers),
         http.get(Uri.parse("${ApiConfig.baseUrl}/api/goals/"), headers: headers),
+        http.get(Uri.parse("${ApiConfig.baseUrl}/api/notifications/"), headers: headers), // Fetch notifications
       ]);
 
       if (responses[0].statusCode == 200 && responses[0].body.isNotEmpty) {
@@ -63,11 +66,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (responses[2].statusCode == 200) {
         List allGoals = jsonDecode(responses[2].body);
-        List filteredGoals = allGoals.where((goal) {
-          return goal['status'] == 'Active';
-        }).toList();
-
+        List filteredGoals = allGoals.where((goal) => goal['status'] == 'Active').toList();
         _recentGoals = filteredGoals.take(3).toList();
+      }
+
+      if (responses[3].statusCode == 200) {
+        List notifs = jsonDecode(responses[3].body);
+        _unreadCount = notifs.where((n) => n['is_read'] == false).length;
       }
     } catch (e) {
       debugPrint("dashboard error: $e");
@@ -119,7 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
           context,
           MaterialPageRoute(builder: (context) => AnalysisStatusScreen(sessionId: data['session_id'])),
         );
-
         _fetchDashboardData();
       }
     } else {
@@ -171,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => SessionHistoryScreen()),
-                      );
+                      ).then((_) => _fetchDashboardData());
                     }),
                     _buildSessionsList(),
                     SizedBox(height: 100),
@@ -184,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: isNewUser ? null : FloatingActionButton.extended(
         onPressed: _navigateToInstructions,
-        backgroundColor: AppColors.powderBlue,
+        backgroundColor: AppColors.midnightNavy,
         label: Text("NEW SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         icon: Icon(Icons.add_a_photo, color: Colors.white),
       ),
@@ -197,10 +201,12 @@ class _HomeScreenState extends State<HomeScreen> {
       floating: true,
       backgroundColor: AppColors.pureWhite,
       elevation: 0,
-      centerTitle: false,
-      title: Row(
-        children: [
-          Material(
+      centerTitle: true,
+      title: Image.asset('assets/logo0_clear_bk.png', height: 40, fit: BoxFit.contain),
+      leading: Padding(
+        padding: EdgeInsets.only(left: 15),
+        child: Center(
+          child: Material(
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
@@ -211,28 +217,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 ).then((_) => _fetchDashboardData());
               },
               child: CircleAvatar(
+                radius: 20,
                 backgroundColor: AppColors.skeletonBlue.withOpacity(0.1),
                 backgroundImage: profilePicPath != null
                     ? NetworkImage("${ApiConfig.baseUrl}$profilePicPath")
                     : null,
                 child: profilePicPath == null
-                    ? Icon(Icons.person_outline, color: AppColors.skeletonBlue)
+                    ? Icon(Icons.person_outline, color: AppColors.midnightNavy, size: 25)
                     : null,
               ),
             ),
           ),
-          SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Welcome back,", style: TextStyle(color: AppColors.terrainGrey, fontSize: 12)),
-              Text(name, style: TextStyle(color: AppColors.onyxCharcoal, fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          Spacer(),
-          Image.asset('assets/logo0_clear_bk.png', height: 45, fit: BoxFit.contain),
-        ],
+        ),
       ),
+      actions: [
+        Padding(
+          padding: EdgeInsets.only(right: 15),
+          child: IconButton(
+            icon: Badge(
+              label: Text(_unreadCount.toString()),
+              isLabelVisible: _unreadCount > 0,
+              backgroundColor: Colors.redAccent,
+              child: Icon(Icons.notifications_none, color: AppColors.midnightNavy, size: 25),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => NotificationsScreen()),
+              ).then((_) => _fetchDashboardData());
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -293,7 +309,6 @@ class _HomeScreenState extends State<HomeScreen> {
         if (target != 0.0) {
           progress = (higherIsBetter ? (latest / target) : (target / latest)).clamp(0.0, 1.0);
         }
-        int percentage = (progress * 100).toInt();
         Color statusColor = _getGoalColor(progress, status);
         return Card(
           margin: EdgeInsets.only(bottom: 15),
@@ -313,14 +328,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("Current: ${latest.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text("Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("Current: ${latest.toStringAsFixed(2)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("Target: ${target.toStringAsFixed(2)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
                   SizedBox(height: 12),
                   LinearProgressIndicator(value: progress, color: statusColor, backgroundColor: Colors.grey.shade100),
                   SizedBox(height: 8),
-                  Text("$percentage% Completed", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text("${(progress * 100).toStringAsFixed(0)}% Completed", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -338,26 +353,21 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: _recentSessions.length > 3 ? 3 : _recentSessions.length,
       itemBuilder: (context, index) {
         final session = _recentSessions[index];
-
         String formattedDate = "Unknown Date";
         String formattedTime = "";
-
         try {
           final DateTime sessionDate = DateTime.parse(session['session_date']).toLocal();
           final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
           formattedDate = "${weekdays[sessionDate.weekday - 1]}, ${months[sessionDate.month - 1]} ${sessionDate.day}";
           int hour = sessionDate.hour > 12 ? sessionDate.hour - 12 : (sessionDate.hour == 0 ? 12 : sessionDate.hour);
           String period = sessionDate.hour >= 12 ? "PM" : "AM";
           String minute = sessionDate.minute.toString().padLeft(2, '0');
           formattedTime = "Recorded at $hour:$minute $period";
         } catch (e) {
-          debugPrint("Error parsing session date: $e");
           formattedDate = "Invalid Date";
           formattedTime = "N/A";
         }
-
         return Card(
           margin: EdgeInsets.only(bottom: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../core/config/api_config.dart';
 import '../core/config/goal_config.dart';
 import '../core/services/api_service.dart';
+import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 
 class SessionDetailsScreen extends StatefulWidget {
@@ -40,12 +42,40 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
       // Only init video if the screen is still mounted
       if (mounted) {
-        _initVideo(data['session']['video_path']);
+        final videoPath = data['session']['video_path'];
+
+        if (videoPath != null &&
+            videoPath.toString().isNotEmpty) {
+          _initVideo(videoPath);
+        }
       }
     } catch (e) {
       if (!mounted) return;
       debugPrint("Error: $e");
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deleteSession() async {
+    try {
+      final token = await TokenStorage.getAccessToken();
+
+      final response = await http.delete(
+        Uri.parse(
+          "${ApiConfig.baseUrl}/api/sessions/${widget.sessionId}/discard/",
+        ),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception("Failed to delete session");
+      }
+    } catch (e) {
+      debugPrint("Error discarding session: $e");
+      rethrow;
     }
   }
 
@@ -165,8 +195,68 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.pureWhite,
         elevation: 0,
-        title: Text("Analysis Results", style: TextStyle(color: AppColors.onyxCharcoal, fontWeight: FontWeight.bold)),
-        leading: IconButton(icon: Icon(Icons.arrow_back_ios, color: AppColors.onyxCharcoal, size: 20), onPressed: () => Navigator.pop(context)),
+        title: Text(
+          "Analysis Results",
+          style: TextStyle(
+            color: AppColors.onyxCharcoal,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: AppColors.onyxCharcoal,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline,
+              color: Colors.red[700],
+            ),
+            onPressed: () async {
+              final shouldDelete = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  title: const Text("Delete Session"),
+                  content: const Text(
+                    "Are you sure you want to delete this session? This action cannot be undone.",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[700],
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text(
+                        "Delete",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (shouldDelete != true) return;
+
+              await _deleteSession();
+
+              if (!mounted) return;
+
+              Navigator.pop(context, true);
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -199,7 +289,38 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
   Widget _buildMetricCard(String key, dynamic value, String friendlyName, String definition) {
     final config = GoalConfigs.metrics[key];
-    double rawValue = double.tryParse(value.toString()) ?? 0.0;
+    double? rawValue = value == null ? null : double.tryParse(value.toString());
+
+    if (rawValue == null) {
+      return Card(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text("No data available"),
+        ),
+      );
+    }
+
+    if (rawValue == 0.0) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.grey.shade100),
+        ),
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.grey),
+              const SizedBox(width: 10),
+              const Text("Invalid / No reliable data detected"),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),

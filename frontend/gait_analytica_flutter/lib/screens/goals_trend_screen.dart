@@ -169,10 +169,28 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
     bool isFinalGoal =
         goalStatus == "Achieved" || goalStatus == "Cancelled";
 
+    double startingValue = double.tryParse(
+        widget.goal['starting_value']?.toString() ??
+            widget.goal['latest_value']?.toString() ??
+            widget.goal['target_value']?.toString() ??
+            "0"
+    ) ?? 0.0;
+
+
+    if(isPercentage){
+      startingValue *= 100;
+    }
+
+    spots.add(FlSpot(0, startingValue),);
+
+    if (startingValue > maxY){
+      maxY= startingValue;
+    }
+
     for (int i = 0; i < points.length; i++) {
       double val = double.tryParse(points[i]['value']?.toString() ?? '0') ?? 0.0;
       if (isPercentage) val *= 100;
-      spots.add(FlSpot(i.toDouble(), val));
+      spots.add(FlSpot((i+1).toDouble(), val));
       if (val > maxY) maxY = val;
     }
 
@@ -227,14 +245,36 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
                 interval: 1, // showing every integer (S1, S2, S3...) for x-axis
                 getTitlesWidget: (value, meta) {
 
-                  if (value >= 0 && value < points.length && value % 1 == 0) {
+                  if (value == 0) {
                     return Padding(
-                      padding: EdgeInsets.only(top: 8.0),
-                      child: Text("S${(value.toInt() + 1)}",
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: const Text(
+                        "Start",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     );
                   }
-                  return SizedBox.shrink();
+
+                  if (value > 0 &&
+                      value <= points.length &&
+                      value % 1 == 0) {
+
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        "S${value.toInt()}",
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return const SizedBox.shrink();
                 },
               ),
             ),
@@ -266,6 +306,16 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, bar, index) {
+
+                  if (index == 0) {
+                    return FlDotCirclePainter(
+                      radius: 4,
+                      color: Colors.orange,
+                      strokeWidth: 2,
+                      strokeColor: Colors.white,
+                    );
+                  }
+
                   if (index == spots.length - 1 && isFinalGoal) {
                     return FlDotCirclePainter(
                       radius: 5,

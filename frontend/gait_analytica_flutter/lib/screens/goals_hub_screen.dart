@@ -277,8 +277,13 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("Current: ${latest.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text("Target: ${target.toStringAsFixed(1)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        goalStatus == "active"
+                            ? "Current: ${latest.toStringAsFixed(2)}${config?.unit ?? ''}"
+                            : "Final: ${latest.toStringAsFixed(2)}${config?.unit ?? ''}",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      Text("Target: ${target.toStringAsFixed(2)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
 
