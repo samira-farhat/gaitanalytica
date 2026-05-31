@@ -38,7 +38,7 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
   }
 
   void _startPolling() {
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    _timer = Timer.periodic(Duration(seconds: 2), (timer) async {
       try {
         final token = await TokenStorage.getAccessToken();
         final response = await http.get(
@@ -65,7 +65,7 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
           } else if (status.toLowerCase().contains("failed")) {
             timer.cancel();
 
-            await _discardBadSession(); // 🔥 IMPORTANT
+            await _discardBadSession();
 
             if (!mounted) return;
 
@@ -92,14 +92,16 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Padding(
-          padding: const EdgeInsets.all(30.0),
+          padding: EdgeInsets.all(30.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.warning_amber_rounded, size: 70, color: Colors.orange),
-              const SizedBox(height: 20),
+              Icon(Icons.warning_amber_rounded, size: 70, color: Colors.orange),
+
+              SizedBox(height: 20),
+
               Text(
-                "Low Quality Analysis", // Centered and normal weight
+                "Low Quality Analysis",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 20,
@@ -107,31 +109,36 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
                   fontWeight: FontWeight.normal,
                 ),
               ),
-              const SizedBox(height: 12),
+
+              SizedBox(height: 12),
+
               Text(
                 message,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 15, height: 1.4),
               ),
-              const SizedBox(height: 35),
+
+              SizedBox(height: 35),
+
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.midnightNavy,
-                  minimumSize: const Size(double.infinity, 50),
+                  minimumSize: Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () {
                   Navigator.pop(context); // Close the dialog
                   Navigator.pop(context); // Back to Scan Instructions
                 },
-                child: const Text("RE-SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text("RE-SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
+
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); // Close the dialog
                   Navigator.of(context).popUntil((route) => route.isFirst); // Back to Home
                 },
-                child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+                child: Text("CANCEL", style: TextStyle(color: Colors.grey)),
               ),
             ],
           ),
@@ -145,7 +152,7 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text("Analysis Issue"),
+        title: Text("Analysis Issue"),
         content: Text("The analysis could not be completed: \n\n$message"),
         actions: [
           TextButton(
@@ -153,7 +160,7 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text("OK"),
+            child: Text("OK"),
           ),
         ],
       ),
@@ -177,18 +184,19 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 30.0),
+            padding: EdgeInsets.symmetric(horizontal: 30.0),
             child: Column(
               children: [
-                const SizedBox(height: 40),
+                SizedBox(height: 40),
+
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.8, end: 1.2),
-                  duration: const Duration(milliseconds: 1000),
+                  duration: Duration(milliseconds: 1000),
                   curve: Curves.easeInOut,
                   builder: (context, value, child) => Transform.scale(
                     scale: value,
                     child: Container(
-                      padding: const EdgeInsets.all(25),
+                      padding: EdgeInsets.all(25),
                       decoration: BoxDecoration(
                         color: AppColors.skeletonBlue.withOpacity(0.1),
                         shape: BoxShape.circle,
@@ -198,29 +206,37 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
                   ),
                   onEnd: () => setState(() {}),
                 ),
-                const SizedBox(height: 40),
+
+                SizedBox(height: 40),
+
                 Text(
                   "Analyzing Gait",
                   style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal),
                 ),
-                const SizedBox(height: 10),
+
+                SizedBox(height: 10),
+
                 Text(
                   "Our AI is processing your movement data.",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: AppColors.terrainGrey),
                 ),
-                const SizedBox(height: 50),
+
+                SizedBox(height: 50),
+
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(25),
+                  padding: EdgeInsets.all(25),
                   decoration: BoxDecoration(
                     color: AppColors.midnightNavy,
                     borderRadius: BorderRadius.circular(25),
                   ),
                   child: Column(
                     children: [
-                      Text(_status.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                      const SizedBox(height: 15),
+                      Text(_status.toUpperCase(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+
+                      SizedBox(height: 15),
+
                       LinearProgressIndicator(
                         value: (displayStep + 1) / steps.length,
                         backgroundColor: Colors.white24,
@@ -229,9 +245,11 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
+
+                SizedBox(height: 40),
+
                 ...List.generate(steps.length, (i) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
                   child: Row(
                     children: [
                       Icon(
@@ -239,7 +257,9 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
                           color: i <= displayStep ? AppColors.skeletonBlue : Colors.grey.shade300,
                           size: 20
                       ),
-                      const SizedBox(width: 15),
+
+                      SizedBox(width: 15),
+
                       Text(
                           steps[i],
                           style: TextStyle(
@@ -250,7 +270,8 @@ class _AnalysisStatusScreenState extends State<AnalysisStatusScreen> {
                     ],
                   ),
                 )),
-                const SizedBox(height: 60),
+
+                SizedBox(height: 60),
               ],
             ),
           ),

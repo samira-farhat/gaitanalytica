@@ -19,62 +19,89 @@ class WelcomeScreen extends StatelessWidget {
             ),
             child: IntrinsicHeight(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 50),
+                    SizedBox(height: 50),
+
                     Image.asset(
                       'assets/logo_clear_bk.png',
                       height: 220,
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Your pathway to precise gait analysis,\nreal-time monitoring, and movement optimization.\nReclaim your mobility.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 20,
-                        height: 1.4,
-                        color: AppColors.onyxCharcoal,
-                        fontWeight: FontWeight.w400,
-                      ),
+
+                    SizedBox(height: 40),
+
+                    Column(
+                      children: [
+                        Text(
+                          'Every step counts. Track your progress',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 20,
+                            height: 1.2,
+                            color: AppColors.midnightNavy,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        SizedBox(height: 16),
+
+                        Text(
+                          'Get real-time AI feedback on your gait to improve your posture, balance, and movement',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 1.5,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 50),
+
+                    SizedBox(height: 60),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen())),
                             style: _buttonStyle(),
-                            child: const Text('LOG IN', style: _buttonTextStyle),
+                            child: Text('LOG IN', style: _buttonTextStyle),
                           ),
                         ),
-                        const SizedBox(width: 16),
+
+                        SizedBox(width: 16),
+
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RegisterScreen())),
                             style: _buttonStyle(),
-                            child: const Text('REGISTER', style: _buttonTextStyle),
+                            child: Text('REGISTER', style: _buttonTextStyle),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 28),
+
+                    SizedBox(height: 28),
+
                     SizedBox(
                       width: 240,
                       child: OutlinedButton(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AboutScreen())),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.skeletonBlue,
-                          side: BorderSide(color: AppColors.skeletonBlue, width: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          foregroundColor: AppColors.midnightNavy,
+                          side: BorderSide(color: AppColors.midnightNavy, width: 2),
+                          padding: EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
                         ),
-                        child: const Text('LEARN MORE', style: _buttonTextStyle),
+                        child: Text('LEARN MORE', style: _buttonTextStyle),
                       ),
                     ),
-                    const SizedBox(height: 50),
+
+                    SizedBox(height: 50),
                   ],
                 ),
               ),
@@ -85,11 +112,10 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  // Helpers to keep build method clean
   ButtonStyle _buttonStyle() => ElevatedButton.styleFrom(
     backgroundColor: AppColors.skeletonBlue,
     foregroundColor: AppColors.pureWhite,
-    padding: const EdgeInsets.symmetric(vertical: 18),
+    padding: EdgeInsets.symmetric(vertical: 18),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
     elevation: 4,
   );

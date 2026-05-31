@@ -33,7 +33,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     super.dispose();
   }
 
-  // function to send the new password to django
   Future<void> updatePassword() async {
     setState(() {
       _isLoading = true;
@@ -51,11 +50,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         }),
       );
 
-      // Guard: Check if screen is still active after the request
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        // Success → Navigate to the root (Login screen)
         Navigator.popUntil(context, (route) => route.isFirst);
       } else {
         final data = jsonDecode(response.body);
@@ -69,7 +66,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         _errorMessage = "Connection error. Please try again.";
       });
     } finally {
-      // Guard: Ensure we only update state if still mounted
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -159,7 +155,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                   ),
 
-                  // password validation
                   validator: (v) {
                     if (v == null || v.isEmpty) return "required";
 
@@ -197,7 +192,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                   ),
 
-                  // confirm password validation
                   validator: (v) {
                     if (v == null || v.isEmpty) return "required";
                     if (v != _passwordController.text) {

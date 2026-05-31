@@ -21,16 +21,13 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  // form key for validation
   final _formKey = GlobalKey<FormState>();
 
-  // controller for the email field
   final TextEditingController _emailController = TextEditingController();
 
-  // loading state
   bool _isLoading = false;
 
-  String? _errorMessage; // FIX: clean error handling (no snackbars)
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -38,7 +35,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  // function to request reset code from django
   Future<ResetRequestResult> requestReset() async {
     setState(() => _isLoading = true);
     _errorMessage = null;
@@ -50,7 +46,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         body: jsonEncode({"email": _emailController.text.trim()}),
       );
 
-      // Safe decoding
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode == 200) {
@@ -59,7 +54,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           message: data['message']?.toString() ?? "Code sent to email",
         );
       } else {
-        // Use ?? to handle cases where the 'error' key might be missing
         String errorMsg = data['error']?.toString() ?? data['detail']?.toString() ?? "Email does not exist";
         return ResetRequestResult(
           success: false,

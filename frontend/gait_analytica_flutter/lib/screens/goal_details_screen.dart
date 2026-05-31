@@ -137,10 +137,9 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     final config = GoalConfigs.metrics[rawMetric];
 
     if (config == null) {
-      return; // or show error UI
+      return;
     }
 
-    // Logic for Stride Consistency UI (Display as 100 instead of 1.0)
     double initialValue = double.tryParse(_currentGoal['target_value'].toString()) ?? 0.0;
     if (rawMetric == "stride_time_cv" && initialValue <= 1.0) initialValue *= 100;
 
@@ -154,7 +153,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
@@ -162,8 +161,10 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Edit Goal Details", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
+              Text("Edit Goal Details", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+
+              SizedBox(height: 20),
+
               TextField(
                 controller: controller,
                 keyboardType: TextInputType.number,
@@ -177,26 +178,30 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                   if (errorText != null) setSheetState(() => errorText = null);
                 },
               ),
-              const SizedBox(height: 20),
+
+              SizedBox(height: 20),
+
               ListTile(
-                title: const Text("Target Date"),
+                title: Text("Target Date"),
                 subtitle: Text(
                   selectedDate == null
                       ? "Not set"
                       : _formatReadable(selectedDate!),
                 ),
-                trailing: const Icon(Icons.calendar_today, color: AppColors.midnightNavy),
+                trailing: Icon(Icons.calendar_today, color: AppColors.midnightNavy),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: selectedDate ?? DateTime.now(),
                     firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    lastDate: DateTime.now().add(Duration(days: 365)),
                   );
                   if (picked != null) setSheetState(() => selectedDate = picked);
                 },
               ),
-              const SizedBox(height: 24),
+
+              SizedBox(height: 24),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -210,11 +215,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                     final bool isStride = rawMetric == 'stride_time_cv';
                     final bool isStep = rawMetric == 'avg_step_length_norm';
 
-                    // 1. Range Validation Logic
-                    // We compare the human-entered value (e.g., 11.2) directly against
-                    // the config limits (1.0 to 15.0) WITHOUT dividing by 100 first.
                     if (val < config.minSafe || val > config.maxSafe) {
-                      // We remove the (* 100) here because the config is already in % form
                       String safeMin = config.minSafe.toStringAsFixed(isStep ? 2 : 1);
                       String safeMax = config.maxSafe.toStringAsFixed(1);
 
@@ -222,10 +223,8 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                       return;
                     }
 
-                    // 2. Improvement Logic
                     double currentLatest = double.tryParse(_currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
 
-                    // We only normalize the latest_value from the backend (0.112 -> 11.2)
                     if (isStride && currentLatest < 1.0) currentLatest *= 100;
 
                     if (config.higherIsBetter) {
@@ -242,8 +241,6 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
 
                     Navigator.pop(context);
 
-                    // 3. Backend Preparation
-                    // We ONLY divide by 100 here to convert the human % back to a decimal for the DB
                     double finalValue = val;
                     if (isStride) finalValue = val / 100;
 
@@ -251,13 +248,14 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.midnightNavy,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
-                  child: const Text("SAVE CHANGES", style: TextStyle(color: Colors.white)),
+                  child: Text("SAVE CHANGES", style: TextStyle(color: Colors.white)),
                 ),
               ),
-              const SizedBox(height: 24),
+
+              SizedBox(height: 24),
             ],
           ),
         ),
@@ -294,16 +292,13 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
       return Scaffold(body: Center(child: Text("Error: Goal metric configuration not found.")));
     }
 
-    // Update this block in the build method
     double target = double.tryParse(_currentGoal['target_value'].toString()) ?? 0.0;
     String goalStatus = _currentGoal['status'].toString().trim().toLowerCase();
 
     double latest;
     if (goalStatus == "active") {
-      // use live data for active goals
       latest = double.tryParse(_currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
     } else {
-      // if Achieved or Cancelled, prioritize the snapshot achieved_value
       latest = double.tryParse(_currentGoal['achieved_value']?.toString() ?? _currentGoal['latest_value']?.toString() ?? _currentGoal['starting_value'].toString()) ?? 0.0;
     }
 
@@ -330,8 +325,6 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     final bool isStride = rawMetric == 'stride_time_cv';
     final bool isStep = rawMetric == 'avg_step_length_norm';
 
-    // u 1 decimal for Stride Consistency
-    // Use 2 decimals for Step Efficiency
     final String targetDisp = isStride
         ? "${target.toStringAsFixed(1)}%"
         : "${target.toStringAsFixed(isStep ? 2 : 2)}${config.unit}";
@@ -349,11 +342,11 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.pureWhite,
         elevation: 0,
-        title: Text(config.displayName, style: const TextStyle(color: AppColors.onyxCharcoal, fontWeight: FontWeight.bold)),
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios, color: AppColors.onyxCharcoal), onPressed: () => Navigator.pop(context)),
+        title: Text(config.displayName, style: TextStyle(color: AppColors.onyxCharcoal, fontWeight: FontWeight.bold)),
+        leading: IconButton(icon: Icon(Icons.arrow_back_ios, color: AppColors.onyxCharcoal), onPressed: () => Navigator.pop(context)),
       ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator()) : SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+      body: _isLoading ? Center(child: CircularProgressIndicator()) : SingleChildScrollView(
+        padding: EdgeInsets.all(24),
         child: Column(
           children: [
             Center(
@@ -369,6 +362,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                     ),
                   ),
+
                   Column(
                     children: [
                       Text("${(progress * 100).toStringAsFixed(progress < 1.0 && progress > 0.99 ? 1 : 0)}%", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
@@ -378,26 +372,28 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 40),
+
+            SizedBox(height: 40),
+
             if (status == "Achieved")
               Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(bottom: 20),
+                padding: EdgeInsets.all(16),
+                margin: EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(15)),
-                child: Text(_getAchievementMessage(), style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                child: Text(_getAchievementMessage(), style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
               ),
 
             if (status == "Cancelled")
               Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(bottom: 20),
+                padding: EdgeInsets.all(16),
+                margin: EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
                   color: Colors.red.shade50,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Text(
                   _getCancelledMessage(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.red,
                     fontWeight: FontWeight.bold,
                   ),
@@ -408,17 +404,17 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               elevation: 0, color: Colors.grey.shade50,
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20),
                 child: Column(
                   children: [
                     _buildInfoRow("Current Value", currentDisp),
-                    const Divider(height: 30),
+                    Divider(height: 30),
 
                     _buildInfoRow("Starting Value", startingDisp),
-                    const Divider(height: 30),
+                    Divider(height: 30),
 
                     _buildInfoRow("Target Value", targetDisp),
-                    const Divider(height: 30),
+                    Divider(height: 30),
 
                     _buildInfoRow("Target Date", _currentGoal['end_date'] != null
                         ? _formatReadable(DateTime.parse(_currentGoal['end_date']))
@@ -427,7 +423,9 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 30),
+
+            SizedBox(height: 30),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -439,22 +437,50 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                     ),
                   );
                 },
-                icon: const Icon(Icons.show_chart),
-                label: const Text("VIEW PROGRESS TRENDS"),
+                icon: Icon(Icons.show_chart),
+                label: Text("VIEW PROGRESS TRENDS"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.midnightNavy, foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
               ),
             ),
             if (status == "Active") ...[
-              const SizedBox(height: 12),
+
+              SizedBox(height: 12),
+
               Row(
                 children: [
-                  Expanded(child: OutlinedButton.icon(onPressed: _showEditBottomSheet, icon: const Icon(Icons.edit), label: const Text("EDIT"), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))))),
-                  const SizedBox(width: 12),
-                  Expanded(child: OutlinedButton.icon(onPressed: _cancelGoal, icon: const Icon(Icons.cancel), label: const Text("CANCEL"), style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))))),
+                  Expanded(
+                      child: OutlinedButton.icon(
+                          onPressed: _showEditBottomSheet,
+                          icon: Icon(Icons.edit),
+                          label: Text("EDIT"),
+                          style: OutlinedButton.styleFrom(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15)
+                              )
+                          )
+                      )
+                  ),
+
+                  SizedBox(width: 12),
+
+                  Expanded(
+                      child: OutlinedButton.icon(
+                          onPressed: _cancelGoal,
+                          icon: Icon(Icons.cancel),
+                          label: Text("CANCEL"),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: BorderSide(color: Colors.red),
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                          )
+                      )
+                  ),
                 ],
               ),
             ],
@@ -469,7 +495,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.onyxCharcoal)),
+        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.onyxCharcoal)),
       ],
     );
   }

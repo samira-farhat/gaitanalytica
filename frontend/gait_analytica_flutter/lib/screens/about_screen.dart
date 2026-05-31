@@ -198,7 +198,6 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  // card widget
   Widget _buildInfoCard({
     required IconData icon,
     required String title,
@@ -279,7 +278,6 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  // metric tile widget
   Widget _buildMetricTile({
     required String title,
     required String description,

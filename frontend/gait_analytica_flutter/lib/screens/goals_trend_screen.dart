@@ -194,11 +194,11 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
       if (val > maxY) maxY = val;
     }
 
-    maxY = maxY * 1.3; // More padding for titles
+    maxY = maxY * 1.3;
 
     return Container(
-      height: 350, // Increased height to accommodate axis titles
-      padding: const EdgeInsets.only(right: 20, top: 10),
+      height: 350,
+      padding: EdgeInsets.only(right: 20, top: 10),
       child: LineChart(
         LineChartData(
           minY: 0,
@@ -242,35 +242,28 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 30,
-                interval: 1, // showing every integer (S1, S2, S3...) for x-axis
+                interval: points.length > 5 ? (points.length / 3).floorToDouble() : 1,
                 getTitlesWidget: (value, meta) {
+                  final int index = value.toInt();
 
-                  if (value == 0) {
+                  if (index == 0) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: const Text(
-                        "Start",
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      padding: EdgeInsets.only(top: 8.0),
+                      child: Text("Start", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     );
                   }
 
-                  if (value > 0 &&
-                      value <= points.length &&
-                      value % 1 == 0) {
-
+                  if (index == points.length) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        "S${value.toInt()}",
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      padding: EdgeInsets.only(top: 8.0),
+                      child: Text("S$index", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                    );
+                  }
+
+                  if (index > 0 && index < points.length && index % meta.appliedInterval == 0) {
+                    return Padding(
+                      padding: EdgeInsets.only(top: 8.0),
+                      child: Text("S$index", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
                     );
                   }
 

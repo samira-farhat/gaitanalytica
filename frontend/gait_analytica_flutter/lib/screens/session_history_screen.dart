@@ -54,7 +54,6 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
     _fetchSessions();
   }
 
-  // Manual Date Formatter (No intl package)
   String _formatDate(DateTime date) {
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -143,7 +142,8 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
               style: TextStyle(color: AppColors.skeletonBlue, fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
-          const SizedBox(width: 8),
+
+          SizedBox(width: 8),
         ],
       ),
       body: _isLoading
@@ -151,7 +151,7 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
           : (_sessions == null || _sessions!.isEmpty)
           ? _buildEmptyState()
           : ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         itemCount: _sessions!.length,
         itemBuilder: (context, index) {
           return _buildSessionCard(_sessions![index]);
@@ -169,14 +169,14 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
     final DateTime localDate = session.date.toLocal();
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 15),
+      margin: EdgeInsets.only(bottom: 15),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: Colors.grey.shade100),
       ),
       elevation: 0,
       child: ListTile(
-        contentPadding: const EdgeInsets.all(15),
+        contentPadding: EdgeInsets.all(15),
         leading: Container(
           width: 50,
           height: 50,
@@ -192,7 +192,7 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
         ),
         subtitle: Text(
           "Recorded at ${_formatTime(localDate)}",
-          style: const TextStyle(color: Colors.grey, fontSize: 13),
+          style: TextStyle(color: Colors.grey, fontSize: 13),
         ),
         trailing: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey.shade400),
         onTap: () {
@@ -202,9 +202,8 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
               builder: (context) => SessionDetailsScreen(sessionId: session.id),
             ),
           ).then((wasDeleted) {
-            // This runs when you come back from the details screen
             if (wasDeleted == true) {
-              _fetchSessions(); // Refresh the list to remove the deleted item
+              _fetchSessions();
             }
           });
         },
@@ -218,8 +217,10 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.history_outlined, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          const Text("No sessions recorded yet.", style: TextStyle(color: Colors.grey)),
+
+          SizedBox(height: 16),
+
+          Text("No sessions recorded yet.", style: TextStyle(color: Colors.grey)),
         ],
       ),
     );

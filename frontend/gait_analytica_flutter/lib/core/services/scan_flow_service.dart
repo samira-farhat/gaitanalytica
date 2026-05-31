@@ -14,11 +14,13 @@ class ScanService {
     request.files.add(await http.MultipartFile.fromPath('video', videoFile.path));
 
     final response = await request.send();
+
     if (response.statusCode == 202) {
       final responseBody = await response.stream.bytesToString();
       final data = jsonDecode(responseBody);
       return data['session_id']; // Return ID to navigate to status screen
     }
+
     return null;
   }
 }

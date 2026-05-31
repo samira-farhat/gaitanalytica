@@ -105,7 +105,6 @@ class _AddGoalBottomSheetState extends State<AddGoalBottomSheet> {
     }
 
     if (latest != null && latest > 0) {
-      // Use ! to tell Dart latest is definitely not null here
       String latestString = latest.toStringAsFixed(2);
 
       if (config.higherIsBetter) {

@@ -32,7 +32,6 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     try {
       final data = await ApiService.getSessionDetails(widget.sessionId);
 
-      // Guard: Check if screen is still active after awaiting
       if (!mounted) return;
 
       setState(() {
@@ -40,7 +39,6 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
         _isLoading = false;
       });
 
-      // Only init video if the screen is still mounted
       if (mounted) {
         final videoPath = data['session']['video_path'];
 
@@ -80,12 +78,11 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   }
 
   void _initVideo(String videoPath) {
-    if (!mounted) return; // Final guard before initializing complex video controllers
+    if (!mounted) return;
 
     final fullUrl = "${ApiConfig.baseUrl}$videoPath";
     _videoController = VideoPlayerController.networkUrl(Uri.parse(fullUrl));
 
-    // Using initialize().then() to ensure the controller is ready before creating Chewie
     _videoController!.initialize().then((_) {
       if (!mounted) return;
       setState(() {
@@ -152,8 +149,8 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(title, style: TextStyle(color: AppColors.midnightNavy, fontWeight: FontWeight.bold)),
-        content: Text(description, style: const TextStyle(height: 1.5)),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Got it"))],
+        content: Text(description, style: TextStyle(height: 1.5)),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("Got it"))],
       ),
     );
   }
@@ -169,19 +166,25 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
     if (status.startsWith("Failed")) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Analysis Results")),
+        appBar: AppBar(title: Text("Analysis Results")),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: EdgeInsets.all(20.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 80, color: Colors.red),
-                const SizedBox(height: 20),
-                const Text("Analysis could not be completed", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
+                Icon(Icons.error_outline, size: 80, color: Colors.red),
+
+                SizedBox(height: 20),
+
+                Text("Analysis could not be completed", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+
+                SizedBox(height: 10),
+
                 Text(status, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
-                const SizedBox(height: 30),
+
+                SizedBox(height: 30),
+
                 ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text("Back to History"))
               ],
             ),
@@ -224,21 +227,21 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  title: const Text("Delete Session"),
-                  content: const Text(
+                  title: Text("Delete Session"),
+                  content: Text(
                     "Are you sure you want to delete this session? This action cannot be undone.",
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
-                      child: const Text("Cancel"),
+                      child: Text("Cancel"),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red[700],
                       ),
                       onPressed: () => Navigator.pop(context, true),
-                      child: const Text(
+                      child: Text(
                         "Delete",
                         style: TextStyle(color: Colors.white),
                       ),
@@ -259,7 +262,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -270,14 +273,22 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
               clipBehavior: Clip.antiAlias,
               child: _chewieController != null ? Chewie(controller: _chewieController!) : const Center(child: CircularProgressIndicator()),
             ),
-            const SizedBox(height: 30),
+
+            SizedBox(height: 30),
+
             Text("Kinematic Performance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
-            const SizedBox(height: 15),
+
+            SizedBox(height: 15),
+
             _buildMetricCard("avg_rom", _data!['kinematics']['avg_rom'], "Knee Range of Motion", "Measures the flexibility and movement range of your knee during steps."),
             _buildMetricCard("knee_symmetry_diff", _data!['kinematics']['knee_symmetry_diff'], "Knee Symmetry", "Compares the movement between left and right legs. Lower is better."),
-            const SizedBox(height: 25),
+
+            SizedBox(height: 25),
+
             Text("Spatial & Rhythm", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
-            const SizedBox(height: 15),
+
+            SizedBox(height: 15),
+
             _buildMetricCard("cadence_bpm", _data!['temporal']['cadence_bpm'], "Walking Cadence", "Your steps per minute. Indicates your overall walking rhythm."),
             _buildMetricCard("stride_time_cv", _data!['temporal']['stride_time_cv'] * 100, "Stride Consistency", "How stable your walking pattern is. Higher percentages indicate instability."),
             _buildMetricCard("avg_step_length_norm", _data!['spatial']['avg_step_length_norm'], "Step Efficiency", "Your normalized step distance relative to your height."),
@@ -302,19 +313,21 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
     if (rawValue == 0.0) {
       return Card(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: EdgeInsets.only(bottom: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: Colors.grey.shade100),
         ),
         elevation: 0,
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20),
           child: Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.grey),
-              const SizedBox(width: 10),
-              const Text("Invalid / No reliable data detected"),
+
+              SizedBox(width: 10),
+
+              Text("Invalid / No reliable data detected"),
             ],
           ),
         ),
@@ -322,11 +335,11 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
       elevation: 0,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20),
         child: Column(
           children: [
             Row(
@@ -335,7 +348,9 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                 Row(
                   children: [
                     Text(config?.displayName ?? friendlyName, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.midnightNavy)),
-                    const SizedBox(width: 4),
+
+                    SizedBox(width: 4),
+
                     GestureDetector(
                       onTap: () => _showInfoDialog(config?.displayName ?? friendlyName, definition),
                       child: Icon(Icons.info_outline, size: 16, color: AppColors.skeletonBlue),
@@ -345,11 +360,15 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
                 _getStatusBadge(rawValue, key),
               ],
             ),
-            const SizedBox(height: 12),
+
+            SizedBox(height: 12),
+
             Row(
               children: [
                 Text(rawValue.toStringAsFixed(key == 'avg_step_length_norm' ? 2 : 1), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 4),
+
+                SizedBox(width: 4),
+
                 Text(config?.unit ?? "", style: TextStyle(color: AppColors.terrainGrey, fontSize: 16)),
               ],
             ),

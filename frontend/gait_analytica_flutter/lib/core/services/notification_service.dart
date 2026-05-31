@@ -6,6 +6,7 @@ import '../models/notification_model.dart';
 
 class NotificationService {
   Future<List<AppNotification>> fetchNotifications(String token) async {
+
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/notifications/'),
       headers: {'Authorization': 'Token $token'},
@@ -15,6 +16,7 @@ class NotificationService {
       List data = json.decode(response.body);
       return data.map((n) => AppNotification.fromJson(n)).toList();
     }
+
     return [];
   }
 

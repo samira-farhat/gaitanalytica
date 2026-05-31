@@ -14,18 +14,17 @@ class InsightService {
           s['stride_time_cv'] != null;
     }
 
-    // Only keep sessions that have all metrics present
+    // only keep sessions that have all metrics present
     List<dynamic> completeSessions = sessions.where(isSessionComplete).toList();
 
     if (completeSessions.length < 2) {
       return "Keep recording! We need at least two complete sessions to analyze your progress.";
     }
 
-    // 1. Prepare Data
+    // 1. prepare Data
     final latest = sessions[0];
     final previous = sessions[1];
 
-    // Parsing flattened keys from your API
     double latCadence = _toDouble(latest['cadence_bpm']);
     double preCadence = _toDouble(previous['cadence_bpm']);
     double latRom = _toDouble(latest['avg_rom']);
@@ -39,12 +38,10 @@ class InsightService {
       return "Keep recording! We need more data to provide insights on your walking rhythm.";
     }
 
-    // 2. Build a List of Possible "Smart" Insights
+    // 2. build a list of possible "Smart" insights
     List<String> validInsights = [];
 
-    // --- Biomechanical Trends ---
-
-    // Knee Symmetry (Lower is generally a tighter sync)
+    // Knee Symmetry (lower is generally a tighter sync)
     if ((latSymm - preSymm).abs() > 1.5) {
       if (latSymm < preSymm) {
         validInsights.add("Your knee symmetry improved by ${(preSymm - latSymm).toStringAsFixed(1)}%. Your legs are moving more in sync today!");
@@ -53,7 +50,7 @@ class InsightService {
       }
     }
 
-    // Range of Motion (Increase is usually the goal in rehab)
+    // Range of Motion (increase is usually the goal in rehab)
     if ((latRom - preRom).abs() > 3.0) {
       if (latRom > preRom) {
         validInsights.add("Great flexibility! Your knee Range of Motion (ROM) increased by ${(latRom - preRom).toStringAsFixed(1)}° since last time.");
@@ -75,7 +72,7 @@ class InsightService {
       }
     }
 
-    // --- Habit & Milestone Insights ---
+    // Habit & Milestone insights
 
     if (sessions.length % 5 == 0) {
       validInsights.add("Milestone reached! You've completed ${sessions.length} sessions. Every scan builds a better picture of your progress.");
@@ -87,7 +84,7 @@ class InsightService {
       validInsights.add("Welcome back! It's been $daysSince days. Recording regularly helps keep your recovery data accurate.");
     }
 
-    // --- Add Fallbacks (Always valid) ---
+    // Fallbacks (always valid) ---
     validInsights.addAll([
       "You've recorded ${sessions.length} sessions. Keep building that history to see long-term trends!",
       "Tip: Try to record your sessions in the same environment for the most consistent data tracking.",
@@ -96,8 +93,7 @@ class InsightService {
       "Did you know? Consistent recording helps identify subtle changes in your walking pattern over time."
     ]);
 
-    // 3. Shuffle and Return the Winner
-    // Shuffling ensures that even if there are 3 valid data trends, the user sees a different one on reload.
+    // 3. shuffle and return
     validInsights.shuffle();
     return validInsights.first;
   }

@@ -24,10 +24,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
 
-  // form key for validation
   final _formKey = GlobalKey<FormState>();
 
-  // controllers to get user input
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -37,7 +35,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String? _unverifiedEmail;
 
-  // loading state for login button
   bool _isLoading = false;
 
   @override
@@ -47,7 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // login function that connects to backend
   Future<void> loginUser() async {
     setState(() {
       _errorMessage = null;
@@ -66,10 +62,8 @@ class _LoginScreenState extends State<LoginScreen> {
         body: jsonEncode(body),
       );
 
-      // Guard: Check if screen was popped while waiting
       if (!mounted) return;
 
-      // Ensure we have a valid body before decoding
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode == 200) {
@@ -78,7 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
           refreshToken: data['refresh'],
         );
 
-        // Guard: Check mounted again before navigating
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => HomeScreen()),
@@ -165,7 +158,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 SizedBox(height: 40),
 
-                // username label
                 _buildLabel("Username"),
 
                 SizedBox(height: 8),
@@ -189,7 +181,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 SizedBox(height: 24),
 
-                // password label
                 _buildLabel("Password"),
 
                 SizedBox(height: 8),
@@ -225,7 +216,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   value == null || value.isEmpty ? "Enter password" : null,
                 ),
 
-                // forgot password
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
@@ -249,13 +239,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 SizedBox(height: 20),
 
-                // login button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton(
 
-                    // validate + call backend
                     onPressed: _isLoading
                         ? null
                         : () {
@@ -335,7 +323,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 SizedBox(height: 30),
 
-                // register link
                 Center(
                   child: RichText(
                     text: TextSpan(

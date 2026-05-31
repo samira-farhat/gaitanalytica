@@ -93,7 +93,6 @@ class _OtpScreenState extends State<OtpScreen> {
     super.dispose();
   }
 
-  // function to verify otp with backend
   Future<void> _verifyOtp() async {
     String otp = _controllers.map((e) => e.text).join();
 
@@ -115,7 +114,6 @@ class _OtpScreenState extends State<OtpScreen> {
         }),
       );
 
-      // Guard: Ensure screen is still active
       if (!mounted) return;
 
       if (response.statusCode == 200) {
@@ -124,7 +122,7 @@ class _OtpScreenState extends State<OtpScreen> {
           _infoMessage = "Code verified successfully";
         });
 
-        Future.delayed(const Duration(milliseconds: 800), () {
+        Future.delayed( Duration(milliseconds: 800), () {
           if (!mounted) return; // Guard: Final check before navigation
           if (widget.isPasswordReset) {
             Navigator.pushReplacement(
@@ -134,7 +132,7 @@ class _OtpScreenState extends State<OtpScreen> {
           } else {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
+              MaterialPageRoute(builder: (context) => LoginScreen()),
                   (route) => false,
             );
           }
@@ -175,7 +173,7 @@ class _OtpScreenState extends State<OtpScreen> {
         body: jsonEncode({"email": widget.email}),
       );
 
-      if (!mounted) return; // Guard
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         setState(() {

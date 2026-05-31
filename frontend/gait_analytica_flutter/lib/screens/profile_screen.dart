@@ -20,19 +20,16 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // state management
   bool _isLoading = true;
   bool _isEditing = false;
-  bool _isRemovingImage = false; // to track if user wants to delete image
+  bool _isRemovingImage = false;
   Map<String, dynamic>? _profileData;
 
   String? _errorMessage;
 
-  // image picking state
   XFile? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
-  // controllers for editable fields
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _middleNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -89,7 +86,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // image logic
   void _viewFullImage() {
     final imageProvider = _getImageProvider();
     if (imageProvider == null) return;
@@ -112,7 +108,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }));
   }
 
-  // bottom sheet menu (WhatsApp style) for profile pic
   void _showImageOptions() {
     showModalBottomSheet(
       context: context,
@@ -146,6 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _pickImage();
                 },
               ),
+
               if (_selectedImage != null || _profileData?['profile_pic'] != null)
                 ListTile(
                   leading: Icon(Icons.delete_outline, color: Colors.redAccent),
@@ -229,7 +225,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // helper to determine which image to show
   ImageProvider? _getImageProvider() {
     if (_isRemovingImage) return null;
     if (_selectedImage != null) {
@@ -312,10 +307,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               if (_errorMessage != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(bottom: 10),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.red,
                       fontWeight: FontWeight.w600,
                     ),

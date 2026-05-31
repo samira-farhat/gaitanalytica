@@ -10,9 +10,9 @@ class ScanInstructionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Scan Guidelines"), backgroundColor: Colors.white, foregroundColor: Colors.black),
+      appBar: AppBar(title: Text("Scan Guidelines"), backgroundColor: Colors.white, foregroundColor: Colors.black),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: EdgeInsets.all(20.0),
         child: Column(
           children: [
             Expanded(
@@ -27,15 +27,17 @@ class ScanInstructionsScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+
+            SizedBox(height: 20),
+
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.midnightNavy,
-                minimumSize: const Size(double.infinity, 50),
+                minimumSize: Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () => _showSourcePicker(context),
-              child: const Text("I'M READY - START SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text("I'M READY - START SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -46,7 +48,7 @@ class ScanInstructionsScreen extends StatelessWidget {
   Widget _buildGuidelineItem(IconData icon, String title, String subtitle) {
     return ListTile(
       leading: Icon(icon, color: AppColors.skeletonBlue, size: 30),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(subtitle),
     );
   }
@@ -58,13 +60,13 @@ class ScanInstructionsScreen extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.camera_alt),
-            title: const Text("Record New Video"),
+            leading: Icon(Icons.camera_alt),
+            title: Text("Record New Video"),
             onTap: () { Navigator.pop(context); onSourceSelected(ImageSource.camera); },
           ),
           ListTile(
-            leading: const Icon(Icons.photo_library),
-            title: const Text("Choose from Gallery"),
+            leading: Icon(Icons.photo_library),
+            title: Text("Choose from Gallery"),
             onTap: () { Navigator.pop(context); onSourceSelected(ImageSource.gallery); },
           ),
         ],

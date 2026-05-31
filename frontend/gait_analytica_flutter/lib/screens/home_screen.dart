@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:gait_analytica_flutter/screens/profile_screen.dart';
@@ -30,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _userProfile;
   List<dynamic> _recentSessions = [];
   List<dynamic> _recentGoals = [];
-  int _unreadCount = 0; // Added for the notification badge
+  int _unreadCount = 0;
 
   @override
   void initState() {
@@ -161,23 +160,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
+
                     _buildHeroCard(isNewUser),
+
                     SizedBox(height: 35),
+
                     _buildSectionHeader("Recovery Progress", "View All", () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => GoalsHubScreen()),
                       ).then((_) => _fetchDashboardData());
                     }),
+
                     _buildGoalsList(),
+
                     SizedBox(height: 35),
+
                     _buildSectionHeader("Recent Sessions", "View All", () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => SessionHistoryScreen()),
                       ).then((_) => _fetchDashboardData());
                     }),
+
                     _buildSessionsList(),
+
                     SizedBox(height: 100),
                   ],
                 ),
@@ -271,8 +278,11 @@ class _HomeScreenState extends State<HomeScreen> {
             isNewUser ? "Ready for your walk?" : "Daily Insight",
             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
+
           SizedBox(height: 8),
+
           Text(description, style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
+
           if (isNewUser) ...[
             SizedBox(height: 20),
             ElevatedButton(
@@ -324,7 +334,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(metricName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.skeletonBlue)),
+
                   SizedBox(height: 12),
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -332,9 +344,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text("Target: ${target.toStringAsFixed(2)}${config?.unit ?? ''}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
+
                   SizedBox(height: 12),
+
                   LinearProgressIndicator(value: progress, color: statusColor, backgroundColor: Colors.grey.shade100),
+
                   SizedBox(height: 8),
+
                   Text("${(progress * 100).toStringAsFixed(0)}% Completed", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),

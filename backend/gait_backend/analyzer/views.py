@@ -17,6 +17,7 @@ from .models import (
     SpatialMetric,
     TemporalMetric,
     UserGoal,
+    UserProfile,
     EmailVerification,
     Notification
 )
@@ -32,7 +33,6 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     NotificationSerializer
 )
-from .models import UserProfile
 from datetime import date, datetime
 from django.utils import timezone
 from datetime import timedelta
@@ -42,6 +42,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 from rest_framework import viewsets, status
+
 
 
 
@@ -1672,15 +1673,10 @@ def goal_trend(request, goal_id):
     })
 
 
+
+
 # API 7 - notifications
 
-from datetime import date
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .models import Notification, UserGoal, GaitSession
-from .serializers import NotificationSerializer
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer

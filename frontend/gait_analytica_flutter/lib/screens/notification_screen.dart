@@ -5,7 +5,7 @@ import '../core/config/api_config.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import 'session_details_screen.dart';
-import 'goal_details_screen.dart'; // Added for specific goal navigation
+import 'goal_details_screen.dart';
 import 'goals_hub_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -85,8 +85,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
     }
     else if (target == 'GoalDetail' && targetId != null) {
-      // FIX: Fetch the goal data first because GoalDetailsScreen needs the full 'goal' Map
-      setState(() => _isLoading = true); // Show loader while fetching
+      setState(() => _isLoading = true);
       try {
         final token = await TokenStorage.getAccessToken();
         final response = await http.get(
@@ -141,9 +140,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           : _notifications.isEmpty
           ? _buildEmptyState()
           : ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 100),
         itemCount: _notifications.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        separatorBuilder: (context, index) => SizedBox(height: 12),
         itemBuilder: (context, index) {
           final n = _notifications[index];
           bool isRead = n['is_read'];
@@ -152,7 +151,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             onTap: () => _handleTap(n),
             borderRadius: BorderRadius.circular(15),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: isRead ? AppColors.pureWhite : AppColors.skeletonBlue.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(15),
@@ -162,7 +161,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildIcon(n['notification_type'], isRead),
-                  const SizedBox(width: 15),
+                  SizedBox(width: 15),
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,7 +175,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             color: AppColors.onyxCharcoal,
                           ),
                         ),
-                        const SizedBox(height: 4),
+
+                        SizedBox(height: 4),
+
                         Text(
                           n['message'],
                           style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.3),
@@ -187,7 +189,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(color: AppColors.midnightNavy, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: AppColors.midnightNavy, shape: BoxShape.circle),
                     ),
                 ],
               ),
@@ -202,9 +204,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         backgroundColor: AppColors.midnightNavy,
         elevation: 1,
         extendedIconLabelSpacing: 8,
-        extendedPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        label: const Text("MARK ALL AS READ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5, fontSize: 12)),
-        icon: const Icon(Icons.done_all, color: Colors.white),
+        extendedPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        label: Text("MARK ALL AS READ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5, fontSize: 12)),
+        icon: Icon(Icons.done_all, color: Colors.white),
       )
           : null,
     );
@@ -233,7 +235,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: isRead ? Colors.grey.shade100 : iconColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -248,7 +250,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.notifications_off_outlined, size: 80, color: Colors.grey.shade200),
-          const SizedBox(height: 16),
+
+          SizedBox(height: 16),
+
           Text("All caught up!", style: TextStyle(color: AppColors.terrainGrey, fontSize: 16, fontWeight: FontWeight.w500)),
         ],
       ),

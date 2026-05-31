@@ -14,10 +14,8 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // form key for validation
   final _formKey = GlobalKey<FormState>();
 
-  // controllers for the data your django backend needs
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _middleNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -35,7 +33,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    // clean up controllers when screen is destroyed
     _firstNameController.dispose();
     _middleNameController.dispose();
     _lastNameController.dispose();
@@ -48,7 +45,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // registration function to connect to django
   Future<void> registerUser() async {
     setState(() {
       _isLoading = true;
@@ -75,7 +71,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: jsonEncode(userData),
       );
 
-      // Guard: Check if screen is still active after awaiting
       if (!mounted) return;
 
       if (response.statusCode == 201) {

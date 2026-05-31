@@ -5,7 +5,7 @@ import '../core/config/api_config.dart';
 import '../core/config/goal_config.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
-import 'goal_details_screen.dart'; // ADDED: Import the details screen
+import 'goal_details_screen.dart';
 import '../core/widgets/add_goal_bottom_sheet.dart';
 
 class GoalsHubScreen extends StatefulWidget {
@@ -83,7 +83,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
       if (results[0].statusCode == 200) {
         final List<dynamic> fetchedGoals = jsonDecode(results[0].body);
         for (var goal in fetchedGoals) {
-          // Only map latest values for Active goals to avoid overwriting logic
+          // to only map latest values for Active goals to avoid overwriting logic
           if (goal['status'] == 'Active') {
             latestMap[goal['metric_name'].toString()] = goal['latest_value'] ?? goal['starting_value'];
           }
