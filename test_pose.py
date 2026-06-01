@@ -6,7 +6,7 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
 # to load the test video
-video_path = "test_videos/v1_90.mp4"  
+video_path = "personal_test_vids/mhmd_hsn/normal1.mp4"  
 cap = cv2.VideoCapture(video_path)
 
 pose = mp_pose.Pose()

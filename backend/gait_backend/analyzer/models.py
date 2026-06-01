@@ -59,6 +59,12 @@ class GaitSession(models.Model):
 
     video_path = models.FileField(upload_to='uploads/')
 
+    skeleton_video_path = models.FileField(
+        upload_to='processed/',
+        blank=True,
+        null=True
+    )
+
     thumbnail_path = models.ImageField(
         upload_to='thumbnails/',
         blank=True,

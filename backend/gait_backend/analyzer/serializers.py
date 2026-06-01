@@ -69,6 +69,7 @@ class GaitSessionSerializer(serializers.ModelSerializer):
             'user',
             'session_date',
             'video_path',
+            'skeleton_video_path',
             'thumbnail_path',
             'created_at'
         ]

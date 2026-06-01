@@ -20,6 +20,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   bool _isLoading = true;
+  bool _showSkeleton = false;
   Map<String, dynamic>? _data;
 
   @override
@@ -28,22 +29,29 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     _loadData();
   }
 
+  String _fixMediaUrl(String path) {
+    if (path.startsWith("http")) return path;
+    String cleaned = path;
+    if (cleaned.startsWith("/media/")) {
+      cleaned = cleaned.replaceFirst("/media/", "");
+    }
+    if (cleaned.startsWith("media/")) {
+      cleaned = cleaned.replaceFirst("media/", "");
+    }
+    return "${ApiConfig.baseUrl}/media/$cleaned";
+  }
+
   Future<void> _loadData() async {
     try {
       final data = await ApiService.getSessionDetails(widget.sessionId);
-
       if (!mounted) return;
-
       setState(() {
         _data = data;
         _isLoading = false;
       });
-
       if (mounted) {
         final videoPath = data['session']['video_path'];
-
-        if (videoPath != null &&
-            videoPath.toString().isNotEmpty) {
+        if (videoPath != null && videoPath.toString().isNotEmpty) {
           _initVideo(videoPath);
         }
       }
@@ -57,44 +65,56 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   Future<void> _deleteSession() async {
     try {
       final token = await TokenStorage.getAccessToken();
-
       final response = await http.delete(
-        Uri.parse(
-          "${ApiConfig.baseUrl}/api/sessions/${widget.sessionId}/discard/",
-        ),
+        Uri.parse("${ApiConfig.baseUrl}/api/sessions/${widget.sessionId}/discard/"),
         headers: {
           "Authorization": "Bearer $token",
           "Content-Type": "application/json",
         },
       );
-
-      if (response.statusCode != 200) {
-        throw Exception("Failed to delete session");
-      }
+      if (response.statusCode != 200) throw Exception("Failed to delete session");
     } catch (e) {
       debugPrint("Error discarding session: $e");
       rethrow;
     }
   }
 
-  void _initVideo(String videoPath) {
+  Future<void> _initVideo(String videoPath) async {
     if (!mounted) return;
 
-    final fullUrl = "${ApiConfig.baseUrl}$videoPath";
-    _videoController = VideoPlayerController.networkUrl(Uri.parse(fullUrl));
+    final oldChewie = _chewieController;
+    final oldVideo = _videoController;
 
-    _videoController!.initialize().then((_) {
+    setState(() {
+      _chewieController = null;
+      _videoController = null;
+    });
+
+    oldChewie?.dispose();
+    oldVideo?.dispose();
+
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    final fullUrl = _fixMediaUrl(videoPath);
+    final controller = VideoPlayerController.networkUrl(Uri.parse(fullUrl));
+
+    try {
+      await controller.initialize();
       if (!mounted) return;
+
       setState(() {
+        _videoController = controller;
         _chewieController = ChewieController(
-          videoPlayerController: _videoController!,
-          autoPlay: false,
+          videoPlayerController: controller,
+          autoPlay: true,
           looping: false,
-          aspectRatio: 16 / 9,
+          aspectRatio: controller.value.aspectRatio,
           allowFullScreen: true,
         );
       });
-    });
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
   }
 
   @override
@@ -108,26 +128,25 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     final config = GoalConfigs.metrics[metricKey];
     if (config == null) return Container();
     if (value <= 0.0) return _buildBadge("INVALID", Colors.grey);
-
+    double checkValue = double.parse(value.toStringAsFixed(2));
     String label = "NEEDS WORK";
     Color statusColor = Colors.red;
     double margin = (metricKey.contains('rom') || metricKey.contains('cadence')) ? 10.0 :
     (metricKey.contains('step_length')) ? 0.05 :
     (metricKey.contains('symmetry')) ? 5.0 : 3.0;
-
     if (config.higherIsBetter) {
-      if (value >= config.minSafe) {
+      if (checkValue >= config.minSafe) {
         label = "HEALTHY";
         statusColor = Colors.green;
-      } else if (value >= (config.minSafe - margin)) {
+      } else if (checkValue >= (config.minSafe - margin)) {
         label = "CAUTION";
         statusColor = Colors.orange;
       }
     } else {
-      if (value <= config.maxSafe) {
+      if (checkValue <= config.maxSafe) {
         label = "HEALTHY";
         statusColor = Colors.green;
-      } else if (value <= (config.maxSafe + margin)) {
+      } else if (checkValue <= (config.maxSafe + margin)) {
         label = "CAUTION";
         statusColor = Colors.orange;
       }
@@ -137,7 +156,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
   Widget _buildBadge(String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
       child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
@@ -181,11 +200,11 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
                 SizedBox(height: 10),
 
-                Text(status, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+                Text(status, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
 
                 SizedBox(height: 30),
 
-                ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text("Back to History"))
+                ElevatedButton(onPressed: () => Navigator.pop(context), child: Text("Back to History"))
               ],
             ),
           ),
@@ -198,65 +217,40 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.pureWhite,
         elevation: 0,
-        title: Text(
-          "Analysis Results",
-          style: TextStyle(
-            color: AppColors.onyxCharcoal,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.onyxCharcoal,
-            size: 20,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: Text("Analysis Results", style: TextStyle(color: AppColors.onyxCharcoal, fontWeight: FontWeight.bold)),
+        leading: IconButton(icon: Icon(Icons.arrow_back_ios, color: AppColors.onyxCharcoal, size: 20), onPressed: () => Navigator.pop(context)),
         actions: [
           IconButton(
-            icon: Icon(
-              Icons.delete_outline,
-              color: Colors.red[700],
-            ),
+            icon: Icon(Icons.delete_outline, color: Colors.red[700]),
             onPressed: () async {
               final shouldDelete = await showDialog<bool>(
                 context: context,
                 barrierDismissible: false,
                 builder: (context) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   title: Text("Delete Session"),
-                  content: Text(
-                    "Are you sure you want to delete this session? This action cannot be undone.",
-                  ),
+                  content: Text("Are you sure you want to delete this session? This action cannot be undone."),
                   actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: Text("Cancel"),
-                    ),
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: Text("Cancel")),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[700],
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red[700]),
                       onPressed: () => Navigator.pop(context, true),
-                      child: Text(
-                        "Delete",
-                        style: TextStyle(color: Colors.white),
-                      ),
+                      child: Text("Delete", style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),
               );
-
               if (shouldDelete != true) return;
-
-              await _deleteSession();
-
-              if (!mounted) return;
-
-              Navigator.pop(context, true);
+              showDialog(context: context, barrierDismissible: false, builder: (context) => Center(child: CircularProgressIndicator(color: Colors.white)));
+              try {
+                await _deleteSession();
+                if (!mounted) return;
+                Navigator.pop(context);
+                Navigator.pop(context, true);
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.pop(context);
+              }
             },
           ),
         ],
@@ -271,7 +265,55 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
               width: double.infinity,
               decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(24)),
               clipBehavior: Clip.antiAlias,
-              child: _chewieController != null ? Chewie(controller: _chewieController!) : const Center(child: CircularProgressIndicator()),
+              child: _chewieController != null ? Chewie(controller: _chewieController!) : Center(child: CircularProgressIndicator()),
+            ),
+
+            SizedBox(height: 16),
+
+            Container(
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
+              padding: EdgeInsets.all(4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        if (_showSkeleton == false) return;
+                        setState(() => _showSkeleton = false);
+                        await _initVideo(_data!['session']['video_path']);
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: !_showSkeleton ? AppColors.pureWhite : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: !_showSkeleton ? [BoxShadow(color: Colors.black12, blurRadius: 4)] : [],
+                        ),
+                        child: Text("ORIGINAL VIEW", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: !_showSkeleton ? AppColors.midnightNavy : Colors.grey)),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final skeletonPath = _data!['session']['skeleton_video_path'];
+                        if (skeletonPath == null || skeletonPath.toString().isEmpty || _showSkeleton == true) return;
+                        setState(() => _showSkeleton = true);
+                        await _initVideo(skeletonPath);
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _showSkeleton ? AppColors.pureWhite : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: _showSkeleton ? [BoxShadow(color: Colors.black12, blurRadius: 4)] : [],
+                        ),
+                        child: Text("LANDMARK VIEW", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _showSkeleton ? AppColors.midnightNavy : Colors.grey)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             SizedBox(height: 30),
@@ -301,39 +343,15 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
   Widget _buildMetricCard(String key, dynamic value, String friendlyName, String definition) {
     final config = GoalConfigs.metrics[key];
     double? rawValue = value == null ? null : double.tryParse(value.toString());
-
-    if (rawValue == null) {
-      return Card(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text("No data available"),
-        ),
-      );
-    }
-
+    if (rawValue == null) return Card(child: Padding(padding: EdgeInsets.all(20), child: Text("No data available")));
     if (rawValue == 0.0) {
       return Card(
         margin: EdgeInsets.only(bottom: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.grey.shade100),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
         elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.grey),
-
-              SizedBox(width: 10),
-
-              Text("Invalid / No reliable data detected"),
-            ],
-          ),
-        ),
+        child: Padding(padding: EdgeInsets.all(20), child: Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.grey), SizedBox(width: 10), Text("Invalid / No reliable data detected")])),
       );
     }
-
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
@@ -351,10 +369,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
                     SizedBox(width: 4),
 
-                    GestureDetector(
-                      onTap: () => _showInfoDialog(config?.displayName ?? friendlyName, definition),
-                      child: Icon(Icons.info_outline, size: 16, color: AppColors.skeletonBlue),
-                    ),
+                    GestureDetector(onTap: () => _showInfoDialog(config?.displayName ?? friendlyName, definition), child: Icon(Icons.info_outline, size: 16, color: AppColors.skeletonBlue)),
                   ],
                 ),
                 _getStatusBadge(rawValue, key),
@@ -363,15 +378,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
 
             SizedBox(height: 12),
 
-            Row(
-              children: [
-                Text(rawValue.toStringAsFixed(key == 'avg_step_length_norm' ? 2 : 1), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-
-                SizedBox(width: 4),
-
-                Text(config?.unit ?? "", style: TextStyle(color: AppColors.terrainGrey, fontSize: 16)),
-              ],
-            ),
+            Row(children: [Text(rawValue.toStringAsFixed(key == 'avg_step_length_norm' ? 2 : 1), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), const SizedBox(width: 4), Text(config?.unit ?? "", style: TextStyle(color: AppColors.terrainGrey, fontSize: 16))]),
           ],
         ),
       ),

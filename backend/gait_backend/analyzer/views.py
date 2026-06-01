@@ -1,3 +1,5 @@
+import uuid
+
 import cv2 
 import mediapipe as mp
 import numpy as np
@@ -42,6 +44,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 from rest_framework import viewsets, status
+
+import os
 
 
 
@@ -186,12 +190,27 @@ def process_analysis(session_id):
 
         cap = cv2.VideoCapture(full_path)
 
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')
+
+        output_filename = f"{uuid.uuid4()}_skeleton.mp4"
+        from django.conf import settings
+
+        output_path = os.path.join(settings.MEDIA_ROOT, "processed", output_filename)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+        if not out.isOpened():
+            raise Exception("VideoWriter failed to open output file")
+
         mp_pose = mp.solutions.pose
         pose = mp_pose.Pose()
 
         start_time= time.time()
-   
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
    
         # lists for data collections
         frame_count = 0
@@ -216,6 +235,14 @@ def process_analysis(session_id):
        
             if results.pose_landmarks:
                 landmark_frames += 1
+
+                # draw skeleton on frame
+                mp.solutions.drawing_utils.draw_landmarks(
+                    frame,
+                    results.pose_landmarks,
+                    mp_pose.POSE_CONNECTIONS
+                )
+
                 lm = results.pose_landmarks.landmark
 
                 # extract Coordinates
@@ -234,9 +261,7 @@ def process_analysis(session_id):
                 leg_len = get_leg_length(l_hip, l_ankle)
                 step_lengths.append(step_dist / leg_len if leg_len > 0 else 0)
 
-        # cleanup resources
-        #pose.close()
-        #cap.release()
+            out.write(frame)
 
 
         if landmark_frames == 0:
@@ -321,6 +346,8 @@ def process_analysis(session_id):
 
         processing_time= end_time - start_time
 
+        print(f"processing time = {processing_time:.3f} seconds")
+
         # save analysis to db
 
         analysis.total_frames = frame_count
@@ -329,6 +356,9 @@ def process_analysis(session_id):
 
         analysis.processing_status = "Completed"
         analysis.save()
+
+        session.skeleton_video_path = f"processed/{output_filename}"
+        session.save()
 
         # save kinematic metrics
         KinematicMetric.objects.create(
@@ -374,6 +404,57 @@ def process_analysis(session_id):
             pose.close()
         if cap is not None:
             cap.release()
+        if 'out' in locals():
+            out.release()
+
+
+
+
+# fucntion that takes an input video and generates a skeleton overlay video.
+def generate_skeleton_video(input_path, output_path):
+
+    mp_pose = mp.solutions.pose
+    mp_drawing = mp.solutions.drawing_utils
+
+    cap = cv2.VideoCapture(input_path)
+
+    if not cap.isOpened():
+        raise Exception(f"Cannot open video: {input_path}")
+
+    # Get video properties
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    # Ensure output directory exists
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # Define video writer (MP4)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    pose = mp_pose.Pose()
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        results = pose.process(rgb)
+
+        if results.pose_landmarks:
+            mp_drawing.draw_landmarks(
+                frame,
+                results.pose_landmarks,
+                mp_pose.POSE_CONNECTIONS
+            )
+
+        out.write(frame)
+
+    cap.release()
+    out.release()
 
 
 
