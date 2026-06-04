@@ -36,17 +36,32 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
         headers: {"Authorization": "Bearer $token"},
       );
 
-      if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+
+      final status = widget.goal['status'] ?? "";
+      final invalidReason = widget.goal['invalid_reason'] ?? "";
+
+      if (status == "Cancelled" && invalidReason == "session_deleted") {
         setState(() {
-          _trendData = jsonDecode(response.body);
+          _errorMessage =
+          "This goal was invalidated because the session that achieved it was deleted.";
           _isLoading = false;
         });
-      } else {
-        setState(() {
-          _errorMessage = "Not enough data points yet to show a trend graph.";
-          _isLoading = false;
-        });
+        return;
       }
+
+      if (status == "Cancelled") {
+        setState(() {
+          _errorMessage = "This goal was cancelled. No trend is available.";
+          _isLoading = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _trendData = body;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _errorMessage = "Failed to load trend data.";
@@ -161,7 +176,7 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
       return const SizedBox.shrink();
     }
 
-    List<dynamic> points = _trendData!['data_points'];
+    List<dynamic> points = (_trendData?['data_points'] ?? []);
 
     List<FlSpot> spots = [];
     double maxY = targetValue;
@@ -169,28 +184,22 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
     bool isFinalGoal =
         goalStatus == "Achieved" || goalStatus == "Cancelled";
 
-    double startingValue = double.tryParse(
-        widget.goal['starting_value']?.toString() ??
-            widget.goal['latest_value']?.toString() ??
-            widget.goal['target_value']?.toString() ??
-            "0"
-    ) ?? 0.0;
-
+    double startingValue = (_trendData?['start_value'] ?? 0).toDouble();
 
     if(isPercentage){
       startingValue *= 100;
     }
 
-    spots.add(FlSpot(0, startingValue),);
-
     if (startingValue > maxY){
       maxY= startingValue;
     }
 
+    spots.add(FlSpot(0, startingValue));
+
     for (int i = 0; i < points.length; i++) {
       double val = double.tryParse(points[i]['value']?.toString() ?? '0') ?? 0.0;
       if (isPercentage) val *= 100;
-      spots.add(FlSpot((i+1).toDouble(), val));
+      spots.add(FlSpot((i + 1).toDouble(), val));
       if (val > maxY) maxY = val;
     }
 

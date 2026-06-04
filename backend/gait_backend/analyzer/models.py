@@ -248,6 +248,20 @@ class UserGoal(models.Model):
         blank=True
     )
 
+    achieved_session = models.ForeignKey(
+        'GaitSession',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='achieved_goals'
+    )
+
+    invalid_reason = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True
+    )
+
     start_date = models.DateTimeField(auto_now_add=True)
 
     end_date = models.DateField(

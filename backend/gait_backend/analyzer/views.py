@@ -46,9 +46,7 @@ from django.conf import settings
 from rest_framework import viewsets, status
 
 import os
-
-
-
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 # HELPER FUNCTIONS (Math parts)
 
@@ -83,20 +81,18 @@ def calculate_symmetry_index(v1, v2):
 # function to check if the users goal was achieved
 def check_goal_achievement(user, analysis):
 
-    Notification.objects.create(
-        user=user,
-        target_id=analysis.session.id,
-        notification_type='session',
-        title="Analysis Complete",
-        message="Your gait analysis is ready to view.",
-        target_screen='SessionDetail'
-    )
-
     # get all active goals for this user
     active_goals= UserGoal.objects.filter(
         user=user,
         status="Active"
     )
+
+    km = getattr(analysis, "kinematic_metrics", None)
+    sm = getattr(analysis, "spatial_metrics", None)
+    tm = getattr(analysis, "temporal_metrics", None)
+
+    if not km and not sm and not tm:
+        return
 
     for goal in active_goals:
 
@@ -105,14 +101,20 @@ def check_goal_achievement(user, analysis):
 
         # KINEMATIC
         if goal.metric_name == "avg_rom":
-            current_value = analysis.kinematic_metrics.avg_rom
 
+            if not km:
+                continue
+
+            current_value = km.avg_rom
             # since higher is better
             achieved = current_value >= goal.target_value
 
 
         elif goal.metric_name == "knee_symmetry_diff":
-            current_value = analysis.kinematic_metrics.knee_symmetry_diff
+            if not km:
+                continue
+
+            current_value = km.knee_symmetry_diff
 
             # lower is better
             achieved = current_value <= goal.target_value
@@ -120,7 +122,10 @@ def check_goal_achievement(user, analysis):
 
         # SPATIAL
         elif goal.metric_name == "avg_step_length_norm":
-            current_value = analysis.spatial_metrics.avg_step_length_norm
+            if not sm:
+                continue
+
+            current_value = sm.avg_step_length_norm
 
             # higher is better
             achieved = current_value >= goal.target_value
@@ -128,14 +133,22 @@ def check_goal_achievement(user, analysis):
 
         # TEMPORAL
         elif goal.metric_name == "cadence_bpm":
-            current_value = analysis.temporal_metrics.cadence_bpm
+
+            if not tm:
+                continue
+             
+            current_value = tm.cadence_bpm
 
             # higher is better
             achieved = current_value >= goal.target_value
 
 
         elif goal.metric_name == "stride_time_cv":
-            current_value = analysis.temporal_metrics.stride_time_cv
+
+            if not tm:
+                continue
+             
+            current_value = tm.stride_time_cv
 
             # lower is better
             achieved = current_value <= goal.target_value
@@ -148,11 +161,15 @@ def check_goal_achievement(user, analysis):
         # if goal is achieved
         if achieved:
             goal.final_value = current_value
-            goal.achieved_value= current_value
+            goal.achieved_value = current_value
             goal.status = "Achieved"
             goal.achieved_date = timezone.now()
-            goal.end_date = timezone.now().date()
+            goal.end_date = analysis.session.session_date.date()
+            goal.achieved_session = analysis.session
+
             goal.save()
+
+
 
             Notification.objects.create(
                 user=user,
@@ -164,6 +181,7 @@ def check_goal_achievement(user, analysis):
             )
 
 
+
 # function to smooth the angles to ensure jumpy frames dont ruin anything
 def smooth_list(data, window_size=3):
     if len(data) < window_size: return data
@@ -173,13 +191,78 @@ def smooth_list(data, window_size=3):
 def safe_mean(arr):
     return float(np.mean(arr)) if len(arr) > 0 else None
 
+
+def get_latest_metric_value(user, metric_name):
+    session = GaitSession.objects.filter(user=user).order_by('-session_date').first()
+
+    if not session:
+        return None
+
+    try:
+        analysis = GaitAnalysis.objects.get(session=session)
+    except GaitAnalysis.DoesNotExist:
+        return None
+
+    mapping = {
+        "avg_rom": analysis.kinematic_metrics.avg_rom,
+        "knee_symmetry_diff": analysis.kinematic_metrics.knee_symmetry_diff,
+        "avg_step_length_norm": analysis.spatial_metrics.avg_step_length_norm,
+        "cadence_bpm": analysis.temporal_metrics.cadence_bpm,
+        "stride_time_cv": analysis.temporal_metrics.stride_time_cv,
+    }
+
+    return mapping.get(metric_name)
+
+
+# function to re-check goal achievement after session deletion
+def recalculate_user_goals(user):
+
+    goals = UserGoal.objects.filter(user=user, status="Active")
+
+    for goal in goals:
+        latest_value = get_latest_metric_value(user, goal.metric_name)
+
+        goal.current_value_at_start = latest_value
+        goal.save(update_fields=["current_value_at_start"])
+
+
+def handle_goal_after_session_delete(user, deleted_session):
+    goals = UserGoal.objects.filter(user=user)
+
+    for goal in goals:
+
+        # CASE 1: this session was the one that achieved the goal
+        if goal.achieved_session_id == deleted_session.id:
+            goal.status = "Cancelled"
+            goal.invalid_reason = "session_deleted"
+
+            goal.final_value = goal.achieved_value  
+            goal.save()
+
+            Notification.objects.create(
+                user=user,
+                target_id=goal.id,
+                notification_type='goal',
+                title="Goal Invalidated",
+                message=f"Your {goal.get_metric_name_display()} goal was invalidated because the session used to achieve it was deleted.",
+                target_screen="GoalDetail"
+            )
+
+        # CASE 2: ACTIVE goals → just recompute latest value (safe)
+        elif goal.status == "Active":
+            latest_value = get_latest_metric_value(user, goal.metric_name)
+
+            goal.current_value_at_start = latest_value
+            goal.save(update_fields=["current_value_at_start"])
+
+
 # to process the uploaded video
 def process_analysis(session_id):
 
     pose = None
     cap = None
-    
-    try: 
+   
+    try:
         session= GaitSession.objects.get(id=session_id)
         analysis= GaitAnalysis.objects.get(session=session)
 
@@ -198,7 +281,10 @@ def process_analysis(session_id):
         output_path = os.path.join(settings.MEDIA_ROOT, "processed", output_filename)
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if not fps or fps == 0:
+            fps = 30
+
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -211,6 +297,8 @@ def process_analysis(session_id):
         pose = mp_pose.Pose()
 
         start_time= time.time()
+
+        total_pose_time = 0
    
         # lists for data collections
         frame_count = 0
@@ -231,8 +319,13 @@ def process_analysis(session_id):
                 analysis.processing_status = "Extracting Features"
                 analysis.save()
 
+            pose_start = time.time()
+
             results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
        
+            pose_time = time.time() - pose_start
+            total_pose_time += pose_time
+
             if results.pose_landmarks:
                 landmark_frames += 1
 
@@ -306,7 +399,7 @@ def process_analysis(session_id):
 
         # 5. Step Length Symmetry (Comparing consecutive peaks)
         step_len_sym_list = [calculate_symmetry_index(peak_values[i], peak_values[i+1]) for i in range(len(peak_values)-1)]
-        step_length_symmetry = np.mean(step_len_sym_list) if step_len_sym_list else 0
+        step_length_symmetry = np.mean(step_len_sym_list) if len(step_len_sym_list) > 0 else 0
 
         # TEMPORAL FEATURES
 
@@ -316,7 +409,7 @@ def process_analysis(session_id):
 
         # 7. Stride Time
         stride_times = [(step_indices[i] - step_indices[i-1]) / fps for i in range(1, len(step_indices))]
-        
+       
         # filter outliers (noise reduction)
         if len(stride_times) > 3:
             q1= np.percentile(stride_times, 25)
@@ -346,7 +439,10 @@ def process_analysis(session_id):
 
         processing_time= end_time - start_time
 
+        print("****************************************************")
         print(f"processing time = {processing_time:.3f} seconds")
+        print("total frames =", frame_count)
+        print("****************************************************")
 
         # save analysis to db
 
@@ -390,6 +486,16 @@ def process_analysis(session_id):
 
         # check goals
         check_goal_achievement(session.user, analysis)
+        Notification.objects.get_or_create(
+            user=session.user,
+            target_id=str(session.id),
+            notification_type='session',
+            defaults={
+                "title": "Analysis Complete",
+                "message": "Your gait analysis is ready to view.",
+                "target_screen": "SessionDetail"
+            }
+        )
 
     except Exception as e:
 
@@ -803,8 +909,13 @@ def get_session_details(request, session_id):
 def discard_session(request, session_id):
     try:
         session = GaitSession.objects.get(id=session_id, user=request.user)
+
+        handle_goal_after_session_delete(request.user, session)
+
         session.delete()
+
         return Response({"message": "Session discarded"}, status=200)
+
     except GaitSession.DoesNotExist:
         return Response({"error": "Not found"}, status=404)
 
@@ -867,7 +978,7 @@ def create_goal(request):
 
     # get data from frontend 
     metric_name= request.data.get('metric_name')
-    target_value = request.data.get('target_value')
+    target_value = float(request.data.get('target_value'))
     end_date = request.data.get('end_date')
 
     # get the latest session for logged-in user
@@ -1029,26 +1140,6 @@ def get_goals(request):
                 latest_value = analysis.temporal_metrics.stride_time_cv
                 higher_is_better = False
 
-            # auto-update status
-            if goal.status == "Active":
-
-                if higher_is_better:
-
-                    if latest_value >= goal.target_value:
-                        goal.status = "Achieved"
-                        goal.achieved_value = latest_value
-                        goal.final_value = latest_value
-                        goal.achieved_date = timezone.now()
-
-                else:
-
-                    if latest_value <= goal.target_value:
-                        goal.status = "Achieved"
-                        goal.achieved_value = latest_value
-                        goal.final_value = latest_value
-                        goal.achieved_date = timezone.now()
-
-                goal.save()
 
         response_data.append({
 
@@ -1077,6 +1168,8 @@ def get_goals(request):
 
             "final_value": goal.final_value,
 
+            "invalid_reason": goal.invalid_reason,
+
             "start_date": goal.start_date,
 
             "end_date": goal.end_date,
@@ -1097,6 +1190,10 @@ def get_goal_details(request, goal_id):
         goal = UserGoal.objects.get(
             id=goal_id,
             user=request.user
+        )
+
+        achieved_session_deleted = (
+            goal.invalid_reason == "session_deleted"
         )
 
     except UserGoal.DoesNotExist:
@@ -1138,26 +1235,6 @@ def get_goal_details(request, goal_id):
                 latest_value = analysis.temporal_metrics.stride_time_cv
                 higher_is_better = False
 
-            # update goal status
-            if goal.status == "Active":
-
-                if higher_is_better:
-
-                    if latest_value >= goal.target_value:
-                        goal.status = "Achieved"
-                        goal.achieved_value = latest_value
-                        goal.final_value = latest_value
-                        goal.achieved_date = timezone.now()
-
-                else:
-
-                    if latest_value <= goal.target_value:
-                        goal.status = "Achieved"
-                        goal.achieved_value = latest_value
-                        goal.final_value = latest_value
-                        goal.achieved_date = timezone.now()
-
-                goal.save()
 
         except GaitAnalysis.DoesNotExist:
             pass
@@ -1180,6 +1257,10 @@ def get_goal_details(request, goal_id):
         "current_value": latest_value,
 
         "final_value": goal.final_value,
+
+        "achieved_session_deleted": achieved_session_deleted,
+
+        "invalid_reason": goal.invalid_reason,
 
         "status": goal.status,
 
@@ -1332,9 +1413,6 @@ def update_goal(request, goal_id):
             analysis = GaitAnalysis.objects.get(session=latest_session)
 
             check_goal_achievement(request.user, analysis)
-
-            # refresh updated goal
-            goal.refresh_from_db()
 
         except GaitAnalysis.DoesNotExist:
             pass
@@ -1653,78 +1731,84 @@ def goal_trend(request, goal_id):
     except UserGoal.DoesNotExist:
         return Response({"error": "Goal not found"}, status=404)
 
-    # get all sessions in order
+    if goal.status == "Cancelled" and goal.invalid_reason == "session_deleted":
+        return Response({
+            "goal_id": goal.id,
+            "metric": goal.metric_name,
+            "trend": "invalid",
+            "message": "This goal was invalidated because the session that achieved it was deleted.",
+            "data_points": []
+        }, status=200)
+
+    metric_map = {
+        "avg_rom": ("kinematic_metrics", "avg_rom", True),
+        "knee_symmetry_diff": ("kinematic_metrics", "knee_symmetry_diff", False),
+        "avg_step_length_norm": ("spatial_metrics", "avg_step_length_norm", True),
+        "cadence_bpm": ("temporal_metrics", "cadence_bpm", True),
+        "stride_time_cv": ("temporal_metrics", "stride_time_cv", False),
+    }
+
+    if goal.metric_name not in metric_map:
+        return Response({"error": "Invalid metric"}, status=400)
+
+    section, field, higher_is_better = metric_map[goal.metric_name]
+
+    # get sessions in order
     sessions = GaitSession.objects.filter(
-        user=request.user
+        user=request.user,
+        session_date__gte=goal.start_date
     ).order_by('session_date')
 
+
     if goal.status in ["Achieved", "Cancelled"]:
-
         cutoff_date = goal.achieved_date or goal.end_date
+        sessions = sessions.filter(session_date__lte=cutoff_date)
 
-        if cutoff_date:
-            sessions = sessions.filter(session_date__lte=cutoff_date)
 
+    session_ids = sessions.values_list('id', flat=True)
+    analyses = GaitAnalysis.objects.filter(session_id__in=session_ids)
+
+    analysis_map = {a.session_id: a for a in analyses}
+
+    # to build data points
     data_points = []
-
-    higher_is_better = None
 
     # loop sessions and extract metric values
     for session in sessions:
 
-        try:
-            analysis = GaitAnalysis.objects.get(session=session)
-        except:
+        analysis = analysis_map.get(session.id)
+        if not analysis:
             continue
 
-        value = None
+        metrics_obj = getattr(analysis, section, None)
+        if not metrics_obj:
+            continue
 
-        if goal.metric_name == "avg_rom":
-            value = analysis.kinematic_metrics.avg_rom
-            higher_is_better = True
-
-        elif goal.metric_name == "knee_symmetry_diff":
-            value = analysis.kinematic_metrics.knee_symmetry_diff
-            higher_is_better = False
-
-        elif goal.metric_name == "avg_step_length_norm":
-            value = analysis.spatial_metrics.avg_step_length_norm
-            higher_is_better = True
-
-        elif goal.metric_name == "cadence_bpm":
-            value = analysis.temporal_metrics.cadence_bpm
-            higher_is_better = True
-
-        elif goal.metric_name == "stride_time_cv":
-            value = analysis.temporal_metrics.stride_time_cv
-            higher_is_better = False
-
-        else:
-            return Response({"error": "Invalid metric"}, status=400)
+        value = getattr(metrics_obj, field, None)
+        if value is None:
+            continue
 
         data_points.append({
             "session_id": session.id,
             "date": session.session_date,
-            "value": value
+            "value": float(value)
         })
 
-    if len(data_points) < 2:
-        return Response({
-            "error": "Not enough data for trend analysis"
-        }, status=400)
+    if not data_points:
+        return Response(
+            {"error": "No data available for this goal yet"},
+            status=400
+        )
 
     # first and last values
-    start_value = goal.current_value_at_start
+    start_value = float(goal.current_value_at_start or 0.0)
    
-    if goal.status in ["Achieved", "Cancelled"] and goal.achieved_value is not None:
-        end_value = goal.final_value
-    else:
-        end_value = data_points[-1]["value"]
+    end_value = data_points[-1]["value"]
 
-    start_value = start_value if start_value is not None else 0.0
-    end_value = end_value if end_value is not None else 0.0
+    start_value = float(start_value)
+    end_value = float(end_value)
 
-    change = float(end_value) - float(start_value)
+    change = end_value - start_value
 
     # determine trend direction
     if higher_is_better:
@@ -1764,16 +1848,18 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
+        self.generate_notifications(self.request.user)
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def generate_notifications(self, user):
         today = date.today()
 
-        # 1. GOAL DEADLINES: Check for goals due today or already passed
         expired_goals = UserGoal.objects.filter(
-            user=user, 
-            end_date__lte=today, 
+            user=user,
+            end_date__lte=today,
             status='Active'
         )
-        
+
         for goal in expired_goals:
             Notification.objects.get_or_create(
                 user=user,
@@ -1787,8 +1873,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        # 2. INACTIVITY: Check if user hasn't had a session in 3 days
         last_session = GaitSession.objects.filter(user=user).order_by('-session_date').first()
+
         if last_session:
             days_since = (today - last_session.session_date.date()).days
             if days_since >= 3:
@@ -1803,12 +1889,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-        # Return all notifications belonging to the user
-        return Notification.objects.filter(user=user).order_by('-created_at')
-
     # Endpoint: mark all as read
     @action(detail=False, methods=['post'], url_path='mark-all-read')
     def mark_all_as_read(self, request):
+        self.generate_notifications(request.user)
         queryset = self.get_queryset().filter(is_read=False)
         count = queryset.count()
         queryset.update(is_read=True)
@@ -1820,6 +1904,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     # Endpoint: mark a specific notification as read
     @action(detail=True, methods=['post'], url_path='mark-read')
     def mark_as_read(self, request, pk=None):
+        self.generate_notifications(request.user)
         try:
             notification = self.get_object()
             notification.is_read = True

@@ -153,7 +153,8 @@ class UserGoalSerializer(serializers.ModelSerializer):
             'status',
             'start_date',
             'end_date',
-            'created_at'
+            'created_at',
+            'invalid_reason'
         ]
 
 

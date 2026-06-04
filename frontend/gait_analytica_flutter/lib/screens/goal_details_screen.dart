@@ -280,12 +280,18 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
   }
 
   String _getCancelledMessage() {
+
+    if (_currentGoal['invalid_reason'] == 'session_deleted') {
+      return "This goal was automatically invalidated because the session that achieved it was deleted.";
+    }
+
     return "This goal has been cancelled and is no longer being tracked.";
   }
 
   @override
   Widget build(BuildContext context) {
     final status = _currentGoal['status'];
+    final bool isInvalidated = _currentGoal['invalid_reason'] == 'session_deleted';
     final rawMetric = _currentGoal['metric_name'].toString();
     final config = GoalConfigs.metrics[rawMetric];
     if (config == null) {
@@ -320,7 +326,9 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
     }
     progress = progress.clamp(0.0, 1.0);
 
-    final Color progressColor = _getGoalColor(progress, status);
+    final Color progressColor = isInvalidated
+        ? Colors.orange
+        : _getGoalColor(progress, status);
 
     final bool isStride = rawMetric == 'stride_time_cv';
     final bool isStep = rawMetric == 'avg_step_length_norm';
@@ -366,7 +374,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                   Column(
                     children: [
                       Text("${(progress * 100).toStringAsFixed(progress < 1.0 && progress > 0.99 ? 1 : 0)}%", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
-                      Text(status.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: progressColor)),
+                      Text(isInvalidated ? "INVALIDATED" : status.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: progressColor)),
                     ],
                   ),
                 ],
@@ -388,13 +396,17 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
                 padding: EdgeInsets.all(16),
                 margin: EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: _currentGoal['invalid_reason'] == 'session_deleted'
+                      ? Colors.orange.shade50
+                      : Colors.red.shade50,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Text(
                   _getCancelledMessage(),
                   style: TextStyle(
-                    color: Colors.red,
+                    color: _currentGoal['invalid_reason'] == 'session_deleted'
+                        ? Colors.orange
+                        : Colors.red,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
