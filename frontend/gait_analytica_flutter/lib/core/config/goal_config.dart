@@ -24,7 +24,7 @@ class GoalConfigs {
       displayName: "Knee Range of Motion",
       unit: "°",
       higherIsBetter: true,
-      minSafe: 50.0,
+      minSafe: 55.0,
       maxSafe: 140.0,
       icon: Icons.accessibility_new,
     ),
@@ -32,15 +32,15 @@ class GoalConfigs {
       displayName: "Knee Symmetry",
       unit: "°",
       higherIsBetter: false, // Lower difference is closer to perfect symmetry
-      minSafe: 1.0,
-      maxSafe: 15.0,
+      minSafe: 0.0,
+      maxSafe: 3.0,
       icon: Icons.balance,
     ),
     'avg_step_length_norm': GoalMetricConfig(
       displayName: "Step Efficiency",
       unit: "ratio", // Normalized but usually represents distance ratio
       higherIsBetter: true,
-      minSafe: 0.25,
+      minSafe: 0.35,
       maxSafe: 0.9,
       icon: Icons.straighten,
     ),
@@ -48,7 +48,7 @@ class GoalConfigs {
       displayName: "Walking Cadence",
       unit: "steps/min",
       higherIsBetter: true,
-      minSafe: 70.0,
+      minSafe: 90.0,
       maxSafe: 130.0,
       icon: Icons.speed,
     ),
@@ -56,8 +56,8 @@ class GoalConfigs {
       displayName: "Stride Consistency",
       unit: "%",
       higherIsBetter: false, // Lower variability means more consistent gait
-      minSafe: 1.0,
-      maxSafe: 15.0,
+      minSafe: 0.0,
+      maxSafe: 4.0,
       icon: Icons.reorder,
     ),
   };

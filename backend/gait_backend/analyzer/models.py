@@ -112,6 +112,8 @@ class GaitAnalysis(models.Model):
 
     processing_time_sec = models.FloatField(default=0)
 
+    ai_interpretation = models.TextField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

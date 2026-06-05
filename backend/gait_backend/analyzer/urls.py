@@ -21,7 +21,8 @@ from .views import (
     resend_otp,
     request_password_reset,
     reset_password_confirm,
-    NotificationViewSet
+    NotificationViewSet,
+    interpret_current_session_with_ai
 )
 
 urlpatterns = [
@@ -49,4 +50,5 @@ urlpatterns = [
     path('notifications/', NotificationViewSet.as_view({'get': 'list'}), name='notifications-list'),
     path('notifications/mark-all-read/', NotificationViewSet.as_view({'post': 'mark_all_as_read'}), name='notifications-mark-all'),
     path('notifications/<int:pk>/mark-read/', NotificationViewSet.as_view({'post': 'mark_as_read'}), name='notification-mark-one'),
+    path('interpret-current/', interpret_current_session_with_ai, name='interpret_current_session'),
 ]

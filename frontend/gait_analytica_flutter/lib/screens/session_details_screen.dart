@@ -7,6 +7,7 @@ import '../core/config/goal_config.dart';
 import '../core/services/api_service.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
+import 'ai_interpretation_screen.dart';
 import 'metric_trend_screen.dart';
 
 class SessionDetailsScreen extends StatefulWidget {
@@ -129,30 +130,41 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
     final config = GoalConfigs.metrics[metricKey];
     if (config == null) return Container();
     if (value <= 0.0) return _buildBadge("INVALID", Colors.grey);
-    double checkValue = double.parse(value.toStringAsFixed(2));
-    String label = "NEEDS WORK";
-    Color statusColor = Colors.red;
-    double margin = (metricKey.contains('rom') || metricKey.contains('cadence')) ? 10.0 :
-    (metricKey.contains('step_length')) ? 0.05 :
-    (metricKey.contains('symmetry')) ? 5.0 : 3.0;
-    if (config.higherIsBetter) {
-      if (checkValue >= config.minSafe) {
-        label = "HEALTHY";
-        statusColor = Colors.green;
-      } else if (checkValue >= (config.minSafe - margin)) {
-        label = "CAUTION";
-        statusColor = Colors.orange;
-      }
-    } else {
-      if (checkValue <= config.maxSafe) {
-        label = "HEALTHY";
-        statusColor = Colors.green;
-      } else if (checkValue <= (config.maxSafe + margin)) {
-        label = "CAUTION";
-        statusColor = Colors.orange;
-      }
+
+    double checkValue = double.parse(value.toStringAsFixed(3));
+
+    if (metricKey == 'avg_rom') {
+      if (checkValue >= 45.0) return _buildBadge("HEALTHY", Colors.green);
+      if (checkValue >= 35.0) return _buildBadge("NORMAL", Colors.orange);
+      return _buildBadge("NEEDS WORK", Colors.red);
     }
-    return _buildBadge(label, statusColor);
+
+    if (metricKey == 'knee_symmetry_diff') {
+      if (checkValue <= 7.0) return _buildBadge("HEALTHY", Colors.green);
+      if (checkValue <= 12.0) return _buildBadge("NORMAL", Colors.orange);
+      return _buildBadge("NEEDS WORK", Colors.red);
+    }
+
+    if (metricKey == 'cadence_bpm') {
+      if (checkValue >= 80.0 && checkValue <= 130.0) return _buildBadge("HEALTHY", Colors.green);
+      if (checkValue >= 70.0) return _buildBadge("NORMAL", Colors.orange);
+      return _buildBadge("NEEDS WORK", Colors.red);
+    }
+
+    if (metricKey == 'stride_time_cv') {
+      double pct = checkValue * 100;
+      if (pct <= 7.0) return _buildBadge("HEALTHY", Colors.green);
+      if (pct <= 10.0) return _buildBadge("NORMAL", Colors.orange);
+      return _buildBadge("NEEDS WORK", Colors.red);
+    }
+
+    if (metricKey == 'avg_step_length_norm') {
+      if (checkValue >= 0.28) return _buildBadge("HEALTHY", Colors.green);
+      if (checkValue >= 0.20) return _buildBadge("NORMAL", Colors.orange);
+      return _buildBadge("NEEDS WORK", Colors.red);
+    }
+
+    return _buildBadge("UNKNOWN", Colors.grey);
   }
 
   Widget _buildBadge(String label, Color color) {
@@ -335,6 +347,57 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
             _buildMetricCard("cadence_bpm", _data!['temporal']['cadence_bpm'], "Walking Cadence", "Your steps per minute. Indicates your overall walking rhythm."),
             _buildMetricCard("stride_time_cv", _data!['temporal']['stride_time_cv'], "Stride Consistency", "How stable your walking pattern is. Higher percentages indicate instability."),
             _buildMetricCard("avg_step_length_norm", _data!['spatial']['avg_step_length_norm'], "Step Efficiency", "Your normalized step distance relative to your height."),
+
+            SizedBox(height: 35),
+
+            Center(
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: AppColors.skeletonBlue.withOpacity(0.2), width: 1),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AiInterpretationScreen(sessionId: widget.sessionId),
+                      ),
+                    );
+                  },
+                  splashColor: AppColors.skeletonBlue.withOpacity(0.08),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.psychology_outlined, color: AppColors.skeletonBlue, size: 22),
+
+                        SizedBox(width: 10),
+
+                        Text(
+                          "View AI Interpretation",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.midnightNavy,
+                          ),
+                        ),
+
+                        SizedBox(width: 6),
+
+                        Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.midnightNavy.withOpacity(0.6)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(height: 20),
           ],
         ),
       ),
