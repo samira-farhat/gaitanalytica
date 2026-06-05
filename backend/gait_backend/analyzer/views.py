@@ -1838,6 +1838,112 @@ def goal_trend(request, goal_id):
     })
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def metric_trend(request, metric_name):
+
+    metric_map = {
+        "avg_rom": ("kinematic_metrics", "avg_rom", True),
+        "knee_symmetry_diff": ("kinematic_metrics", "knee_symmetry_diff", False),
+        "avg_step_length_norm": ("spatial_metrics", "avg_step_length_norm", True),
+        "cadence_bpm": ("temporal_metrics", "cadence_bpm", True),
+        "stride_time_cv": ("temporal_metrics", "stride_time_cv", False),
+    }
+
+    if metric_name not in metric_map:
+        return Response(
+            {"error": "Invalid metric"},
+            status=400
+        )
+
+    section, field, higher_is_better = metric_map[metric_name]
+
+    sessions = GaitSession.objects.filter(
+        user=request.user
+    ).order_by('session_date')
+
+    target_session_id = request.query_params.get('session_id')
+    if target_session_id:
+        target_session_id = target_session_id.rstrip('/')
+        try:
+            target_session = GaitSession.objects.get(id=target_session_id, user=request.user)
+            # filter out any session recorded after the target session's timestamp
+            sessions = sessions.filter(session_date__lte=target_session.session_date)
+        except GaitSession.DoesNotExist:
+            return Response({"error": "Target session context not found"}, status=404)
+
+    data_points = []
+
+    for session in sessions:
+
+        try:
+            analysis = GaitAnalysis.objects.get(session=session)
+
+            metrics_obj = getattr(analysis, section)
+
+            value = getattr(metrics_obj, field)
+
+            data_points.append({
+                "session_id": session.id,
+                "date": session.session_date,
+                "value": float(value)
+            })
+
+        except (
+            GaitAnalysis.DoesNotExist,
+            KinematicMetric.DoesNotExist,
+            SpatialMetric.DoesNotExist,
+            TemporalMetric.DoesNotExist
+        ):
+            continue
+
+    if not data_points:
+        return Response(
+            {"error": "No data available"},
+            status=400
+        )
+
+    first_value = data_points[0]["value"]
+    latest_value = data_points[-1]["value"]
+
+    change = latest_value - first_value
+
+    if higher_is_better:
+
+        if change > 0:
+            trend = "improving"
+        elif change < 0:
+            trend = "worsening"
+        else:
+            trend = "stable"
+
+    else:
+
+        if change < 0:
+            trend = "improving"
+        elif change > 0:
+            trend = "worsening"
+        else:
+            trend = "stable"
+
+    return Response({
+
+        "metric_name": metric_name,
+
+        "first_value": round(first_value, 4),
+
+        "current_value": round(latest_value, 4),
+
+        "change": round(change, 4),
+
+        "trend": trend,
+
+        "total_sessions": len(data_points),
+
+        "data_points": data_points
+
+    })
+
 
 
 # API 7 - notifications

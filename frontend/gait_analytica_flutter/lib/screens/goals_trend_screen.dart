@@ -44,7 +44,7 @@ class _GoalTrendScreenState extends State<GoalTrendScreen> {
       if (status == "Cancelled" && invalidReason == "session_deleted") {
         setState(() {
           _errorMessage =
-          "This goal was invalidated because the session that achieved it was deleted.";
+          "No trend is available.\nThis goal was invalidated because the session that achieved it was deleted.";
           _isLoading = false;
         });
         return;

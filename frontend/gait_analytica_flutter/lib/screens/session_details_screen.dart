@@ -7,6 +7,7 @@ import '../core/config/goal_config.dart';
 import '../core/services/api_service.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
+import 'metric_trend_screen.dart';
 
 class SessionDetailsScreen extends StatefulWidget {
   final int sessionId;
@@ -332,7 +333,7 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
             SizedBox(height: 15),
 
             _buildMetricCard("cadence_bpm", _data!['temporal']['cadence_bpm'], "Walking Cadence", "Your steps per minute. Indicates your overall walking rhythm."),
-            _buildMetricCard("stride_time_cv", _data!['temporal']['stride_time_cv'] * 100, "Stride Consistency", "How stable your walking pattern is. Higher percentages indicate instability."),
+            _buildMetricCard("stride_time_cv", _data!['temporal']['stride_time_cv'], "Stride Consistency", "How stable your walking pattern is. Higher percentages indicate instability."),
             _buildMetricCard("avg_step_length_norm", _data!['spatial']['avg_step_length_norm'], "Step Efficiency", "Your normalized step distance relative to your height."),
           ],
         ),
@@ -352,34 +353,50 @@ class _SessionDetailsScreenState extends State<SessionDetailsScreen> {
         child: Padding(padding: EdgeInsets.all(20), child: Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.grey), SizedBox(width: 10), Text("Invalid / No reliable data detected")])),
       );
     }
+
+    final isStrideCV = key == 'stride_time_cv';
+    final displayValue = isStrideCV ? rawValue * 100 : rawValue;
+
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade100)),
       elevation: 0,
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text(config?.displayName ?? friendlyName, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.midnightNavy)),
-
-                    SizedBox(width: 4),
-
-                    GestureDetector(onTap: () => _showInfoDialog(config?.displayName ?? friendlyName, definition), child: Icon(Icons.info_outline, size: 16, color: AppColors.skeletonBlue)),
-                  ],
-                ),
-                _getStatusBadge(rawValue, key),
-              ],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MetricTrendScreen(
+                metricKey: key,
+                sessionId: widget.sessionId,
+              ),
             ),
-
-            SizedBox(height: 12),
-
-            Row(children: [Text(rawValue.toStringAsFixed(key == 'avg_step_length_norm' ? 2 : 1), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), const SizedBox(width: 4), Text(config?.unit ?? "", style: TextStyle(color: AppColors.terrainGrey, fontSize: 16))]),
-          ],
+          );
+        },
+        splashColor: AppColors.skeletonBlue.withOpacity(0.05),
+        highlightColor: Colors.transparent,
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(config?.displayName ?? friendlyName, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.midnightNavy)),
+                      SizedBox(width: 4),
+                      GestureDetector(onTap: () => _showInfoDialog(config?.displayName ?? friendlyName, definition), child: Icon(Icons.info_outline, size: 16, color: AppColors.skeletonBlue)),
+                    ],
+                  ),
+                  _getStatusBadge(rawValue, key),
+                ],
+              ),
+              SizedBox(height: 12),
+              Row(children: [Text(displayValue.toStringAsFixed(key == 'avg_step_length_norm' ? 2 : 1), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)), const SizedBox(width: 4), Text(config?.unit ?? "", style: TextStyle(color: AppColors.terrainGrey, fontSize: 16))]),
+            ],
+          ),
         ),
       ),
     );
