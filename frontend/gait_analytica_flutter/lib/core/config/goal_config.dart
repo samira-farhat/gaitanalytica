@@ -33,7 +33,7 @@ class GoalConfigs {
       unit: "°",
       higherIsBetter: false, // Lower difference is closer to perfect symmetry
       minSafe: 0.0,
-      maxSafe: 3.0,
+      maxSafe: 5.0,
       icon: Icons.balance,
     ),
     'avg_step_length_norm': GoalMetricConfig(

@@ -981,7 +981,7 @@ def create_goal(request):
 
     # get data from frontend 
     metric_name= request.data.get('metric_name')
-    target_value = float(request.data.get('target_value'))
+    target_value = request.data.get('target_value')
     end_date = request.data.get('end_date')
 
     # get the latest session for logged-in user
@@ -996,11 +996,13 @@ def create_goal(request):
             status=400
         )
     
-    if not target_value:
+    if target_value is None:
         return Response(
             {"error": "Target value is required"},
             status=400
     )
+
+    target_value= float(target_value)
     
     # get analysis
     try:

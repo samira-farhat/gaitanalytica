@@ -321,9 +321,17 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
 
     bool higherIsBetter = config.higherIsBetter;
     double progress = 0.0;
-    if (target != 0.0) {
+
+    if (target == 0.0) {
+      if (starting != target) {
+        progress = (starting - latest) / (starting - target);
+      } else {
+        progress = 1.0;
+      }
+    } else {
       progress = higherIsBetter ? (latest / target) : (target / latest);
     }
+
     progress = progress.clamp(0.0, 1.0);
 
     final Color progressColor = isInvalidated
@@ -373,7 +381,7 @@ class _GoalDetailsScreenState extends State<GoalDetailsScreen> {
 
                   Column(
                     children: [
-                      Text("${(progress * 100).toStringAsFixed(progress < 1.0 && progress > 0.99 ? 1 : 0)}%", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
+                      Text("${(progress * 100).toStringAsFixed(progress < 1.0 && progress > 0.99 ? 1 : 0)}%", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.onyxCharcoal)),
                       Text(isInvalidated ? "INVALIDATED" : status.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: progressColor)),
                     ],
                   ),

@@ -150,11 +150,13 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
         controller: _tabController,
         children: [_buildGoalList("Active"), _buildGoalList("Achieved"), _buildGoalList("Cancelled")],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _latestMetricValues.isNotEmpty
+          ? FloatingActionButton(
         onPressed: () => _showAddGoalSheet(),
         backgroundColor: AppColors.midnightNavy,
         child: Icon(Icons.add, color: Colors.white),
-      ),
+      )
+          : null,
     );
   }
 
@@ -217,9 +219,20 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
 
         bool higherIsBetter = config?.higherIsBetter ?? true;
         double progress = 0.0;
-        if (target != 0.0) {
+
+        if (target == 0.0) {
+          // If target is 0, progress is how much of the "starting gap" we have closed
+          double start = double.tryParse(goal['starting_value']?.toString() ?? latest.toString()) ?? latest;
+          if (start != target) {
+            progress = (start - latest) / (start - target);
+          } else {
+            progress = 1.0;
+          }
+        } else {
+          // logic for non-zero targets
           progress = higherIsBetter ? (latest / target) : (target / latest);
         }
+
         progress = progress.clamp(0.0, 1.0);
 
         return Card(
@@ -293,7 +306,7 @@ class _GoalsHubScreenState extends State<GoalsHubScreen> with SingleTickerProvid
 
                   SizedBox(height: 8),
 
-                  Text("${(progress * 100).toInt()}% Completed", style: TextStyle(color: _getGoalColor(progress, status), fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text("${(progress * 100).round()}% Completed", style: TextStyle(color: _getGoalColor(progress, status), fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),

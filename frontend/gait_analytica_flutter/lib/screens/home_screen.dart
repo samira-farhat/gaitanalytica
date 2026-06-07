@@ -308,17 +308,30 @@ class _HomeScreenState extends State<HomeScreen> {
         final String rawMetric = goal['metric_name'].toString();
         final config = GoalConfigs.metrics[rawMetric];
         final String metricName = config?.displayName ?? rawMetric.replaceAll('_', ' ').toUpperCase();
-        double target = double.tryParse(goal['target_value'].toString()) ?? 0.0;
-        double latest = double.tryParse(goal['latest_value']?.toString() ?? goal['starting_value'].toString()) ?? 0.0;
+        double latest = double.tryParse(goal['latest_value']?.toString() ?? goal['starting_value']?.toString() ?? "0") ?? 0.0;
+        double start = double.tryParse(goal['starting_value']?.toString() ?? latest.toString()) ?? latest;
+        double target = double.tryParse(goal['target_value']?.toString() ?? "0") ?? 0.0;
         if (rawMetric == "stride_time_cv") {
           if (target < 1.0) target *= 100;
           if (latest < 1.0) latest *= 100;
+          if (start < 1.0) start *= 100;
         }
         bool higherIsBetter = config?.higherIsBetter ?? true;
+
         double progress = 0.0;
-        if (target != 0.0) {
-          progress = (higherIsBetter ? (latest / target) : (target / latest)).clamp(0.0, 1.0);
+        if (target == 0.0) {
+
+          if (start != target) {
+            progress = (start - latest) / (start - target);
+          } else {
+            progress = 1.0;
+          }
+        } else {
+          progress = higherIsBetter ? (latest / target) : (target / latest);
         }
+        progress = progress.clamp(0.0, 1.0);
+
+
         Color statusColor = _getGoalColor(progress, status);
         return Card(
           margin: EdgeInsets.only(bottom: 15),
@@ -351,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   SizedBox(height: 8),
 
-                  Text("${(progress * 100).toStringAsFixed(0)}% Completed", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text("${(progress * 100).round()}% Completed", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
