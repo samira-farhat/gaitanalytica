@@ -54,6 +54,8 @@ backend/gait_backend/*.sqlite3
 # Django media uploads
 backend/gait_backend/media/
 
+backend/gait_backend/public_exports/
+
 # Test videos
 test_videos/
 
