@@ -2048,176 +2048,38 @@ client = genai.Client()
 @permission_classes([IsAuthenticated])
 # uses Gemini API to interpret the current session's metrics and video
 def interpret_current_session_with_ai(request):
-    
     target_session_id = request.query_params.get('session_id')
     
-    # 1. fetch the target session and corresponding Analysis data
+    # Logic to get session (Keep your existing error handling)
     if target_session_id:
-        target_session_id = target_session_id.rstrip('/')
         try:
-            session = GaitSession.objects.get(id=target_session_id, user=request.user)
+            session = GaitSession.objects.get(id=target_session_id.rstrip('/'), user=request.user)
         except GaitSession.DoesNotExist:
-            return Response({"error": "Specified session not found"}, status=404)
+            return Response({"error": "Session not found"}, status=404)
     else:
         session = GaitSession.objects.filter(user=request.user).order_by('-session_date').first()
         if not session:
-            return Response({"error": "No gait sessions found for this user"}, status=404)
+            return Response({"error": "No session found"}, status=404)
 
     try:
         analysis = GaitAnalysis.objects.get(session=session)
     except GaitAnalysis.DoesNotExist:
-        return Response({"error": "Analysis data not found for this session"}, status=404)
+        return Response({"error": "Analysis data not found"}, status=404)
 
+    # If it's already done, return it
     if analysis.ai_interpretation and analysis.ai_interpretation.strip():
         return Response({
             "session_id": session.id,
-            "recorded_date": session.session_date,
             "ai_interpretation": analysis.ai_interpretation
         })
 
-    # 2. extracts the raw numerical values safely from your sub-tables
-    raw_rom = float(analysis.kinematic_metrics.avg_rom) if getattr(analysis.kinematic_metrics, 'avg_rom', None) is not None else 0.0
-    raw_sym = float(analysis.kinematic_metrics.knee_symmetry_diff) if getattr(analysis.kinematic_metrics, 'knee_symmetry_diff', None) is not None else 0.0
-    raw_cad = float(analysis.temporal_metrics.cadence_bpm) if getattr(analysis.temporal_metrics, 'cadence_bpm', None) is not None else 0.0
-    raw_cv  = float(analysis.temporal_metrics.stride_time_cv) if getattr(analysis.temporal_metrics, 'stride_time_cv', None) is not None else 0.0
-    raw_eff = float(analysis.spatial_metrics.avg_step_length_norm) if getattr(analysis.spatial_metrics, 'avg_step_length_norm', None) is not None else 0.0
-
-    # 3. threshold evaluation logic
-    def evaluate_status(val, key):
-            if val <= 0.0: return "INVALID"
-            v = round(val, 3)
-            
-            if key == 'rom':
-                if v >= 45.0: return "HEALTHY"
-                if v >= 35.0: return "NORMAL"
-                return "NEEDS WORK"
-                
-            elif key == 'sym':
-                if v <= 7.0: return "HEALTHY"
-                if v <= 12.0: return "NORMAL"
-                return "NEEDS WORK"
-                
-            elif key == 'cad':
-                if v >= 80.0 and v <= 130.0: return "HEALTHY"
-                if v >= 70.0: return "NORMAL"
-                return "NEEDS WORK"
-                
-            elif key == 'cv':
-                pct = v * 100
-                if pct <= 7.0: return "HEALTHY"
-                if pct <= 10.0: return "NORMAL"
-                return "NEEDS WORK"
-                
-            elif key == 'eff':
-                if v >= 0.28: return "HEALTHY"
-                if v >= 0.20: return "NORMAL"
-                return "NEEDS WORK"
-                
-            return "UNKNOWN"
+    # Trigger background task and return immediately
+    async_task('analyzer.tasks.run_ai_analysis_task', analysis.id)
     
-
-    # 4. matching frontend screen names, ordering, and parsed values
-    ordered_metrics_context = [
-        {
-            "ui_name": "Knee Range of Motion",
-            "value": f"{round(raw_rom, 1)} degrees",
-            "status": evaluate_status(raw_rom, 'rom')
-        },
-        {
-            "ui_name": "Knee Symmetry",
-            "value": f"{round(raw_sym, 1)} degrees",
-            "status": evaluate_status(raw_sym, 'sym')
-        },
-        {
-            "ui_name": "Walking Cadence",
-            "value": f"{round(raw_cad, 1)} steps/min",
-            "status": evaluate_status(raw_cad, 'cad')
-        },
-        {
-            "ui_name": "Stride Consistency",
-            "value": f"{round(raw_cv * 100, 1)} %",
-            "status": evaluate_status(raw_cv, 'cv')
-        },
-        {
-            "ui_name": "Step Efficiency",
-            "value": f"{round(raw_eff, 2)} stature ratio",
-            "status": evaluate_status(raw_eff, 'eff')
-        }
-    ]
-
-    # 5. to send video to Gemini as well
-    video_file_system_path = None
-    uploaded_file_ref = None
-    
-    if session.video_path:
-        video_file_system_path = session.video_path.path
-
-    try:
-        contents_list = []
-        
-        # if the file exists locally, upload it temporarily to the GenAI Files API
-        if video_file_system_path and os.path.exists(video_file_system_path):
-            uploaded_file_ref = client.files.upload(file=video_file_system_path)
-
-            while uploaded_file_ref.state.name == "PROCESSING":
-                time.sleep(2)  # wait 2 seconds before checking again
-                uploaded_file_ref = client.files.get(name=uploaded_file_ref.name)
-            
-            if uploaded_file_ref.state.name == "FAILED":
-                raise Exception("Google video processing file optimization failed.")
-            
-            contents_list.append(uploaded_file_ref)
-        
-        # building the structured analytical prompt 
-        prompt_text = f"""
-        You are a concise, professional biomechanics analysis assistant.
-        Analyze the following gait session metrics and correlate them with the movement execution patterns in the video:
-        {ordered_metrics_context}
-
-        CRITICAL OUTPUT FORMATTING INSTRUCTIONS:
-        CRITICAL OUTPUT FORMATTING INSTRUCTIONS:
-        1. You MUST generate exactly FIVE distinct, separate paragraphs—one paragraph for each metric item.
-        2. Separate each paragraph with TWO newline characters (\\n\\n) to ensure they render as distinct blocks.
-        3. Keep the text in the EXACT sequence order as provided in the metric list above.
-        4. Do NOT use any markdown characters like asterisks (**), hashtags (#), bullet points, dashes, or numbered lists.
-        5. Do NOT include any introductory statements (e.g., "Here is your report..."), summary remarks, or complimentary chat feedback.
-        6. Do NOT include any recommendations, actionable steps, or exercise suggestions at the end. 
-        7. Address the user directly using the UI Names provided. Use the Status value provided to ensure your text tone aligns perfectly with whether they are Healthy, Caution, or Needs Work.
-        """
-
-        contents_list.append(prompt_text)
-
-        # 5. execute call via Gemini Multimodal framework
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=contents_list,
-            config=types.GenerateContentConfig(
-                temperature=0.1, 
-            )
-        )
-        
-        ai_interpretation = response.text.replace("**", "").replace("*", "").strip()
-
-        # 6. add the interpretation directly into your GaitAnalysis record
-        analysis.ai_interpretation = ai_interpretation
-        analysis.save()
-
-    except Exception as e:
-        return Response({"error": f"Failed during AI processing sequence: {str(e)}"}, status=500)
-    
-    finally:
-        # clean up the file from remote Google servers after evaluation is complete
-        if uploaded_file_ref:
-            try:
-                client.files.delete(name=uploaded_file_ref.name)
-            except Exception:
-                pass 
-
     return Response({
-        "session_id": session.id,
-        "recorded_date": session.session_date,
-        "ai_interpretation": ai_interpretation
-    })
+        "status": "processing", 
+        "message": "AI analysis is in progress. Please check back in a moment."
+    }, status=202)
 
 
 # API 9 - consultant logic

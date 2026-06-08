@@ -15,37 +15,21 @@ class ConsultationRequestScreen extends StatefulWidget {
 }
 
 class _ConsultationRequestScreenState extends State<ConsultationRequestScreen> {
+  final _formKey = GlobalKey<FormState>(); // Key to trigger validation
   final _concern = TextEditingController();
   final _notes = TextEditingController();
   String _scope = 'latest';
-
-  void _showConfirmation() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Share Consultation Data?"),
-        content: Text("By confirming, your data is being prepared for ${widget.consultant['name']}. You will receive a notification in the app once it has been sent."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _submit();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.midnightNavy),
-            child: Text("Confirm & Send", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
+  bool _isChecked = false;
 
   Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (!_isChecked) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => const Center(child: CircularProgressIndicator(color: AppColors.skeletonBlue)),
     );
 
     try {
@@ -59,40 +43,35 @@ class _ConsultationRequestScreenState extends State<ConsultationRequestScreen> {
         body: jsonEncode({
           "consultant_id": widget.consultant['id'],
           "scope": _scope,
-          "survey_data": {"concern": _concern.text, "notes": _notes.text}
+          "survey_data": {"concern": _concern.text.trim(), "notes": _notes.text.trim()}
         }),
       );
 
-      if (mounted) Navigator.pop(context); // Close loading dialog
+      if (mounted) Navigator.pop(context);
 
-      // 202 Accepted means the task was successfully queued in the background
       if (res.statusCode == 202) {
         if (mounted) {
           showDialog(
             context: context,
             barrierDismissible: false,
             builder: (ctx) => AlertDialog(
-              title: const Text("Request Initiated"),
-              content: const Text("We are preparing your session data. You will be notified in the app once it's sent to the consultant."),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text("Request Initiated"),
+              content: Text("Your data is being prepared for ${widget.consultant['name']}. You will be notified in the app once it has been sent."),
               actions: [
-                ElevatedButton(
+                TextButton(
                   onPressed: () {
-                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => const HomeScreen()), (route) => false);
+                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => HomeScreen()), (route) => false);
                   },
-                  child: const Text("OK"),
+                  child: Text("OK"),
                 )
               ],
             ),
           );
         }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error initiating request. Please try again.")));
-        }
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      debugPrint("Error: $e");
     }
   }
 
@@ -107,29 +86,62 @@ class _ConsultationRequestScreenState extends State<ConsultationRequestScreen> {
         iconTheme: IconThemeData(color: AppColors.midnightNavy),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Help ${widget.consultant['name']} understand your needs:", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 20),
-            TextFormField(controller: _concern, decoration: InputDecoration(labelText: "Primary Concern", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-            const SizedBox(height: 15),
-            TextFormField(controller: _notes, maxLines: 5, decoration: InputDecoration(labelText: "Additional Notes / Symptoms", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
-            const SizedBox(height: 25),
-            const Text("Select Data Scope to Share:", style: TextStyle(fontWeight: FontWeight.bold)),
-            RadioListTile(title: const Text("Latest Session Only"), value: 'latest', groupValue: _scope, onChanged: (v) => setState(() => _scope = v!)),
-            RadioListTile(title: const Text("Full Historical Data"), value: 'all', groupValue: _scope, onChanged: (v) => setState(() => _scope = v!)),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity, height: 55,
-              child: ElevatedButton(
-                onPressed: _showConfirmation,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.midnightNavy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                child: const Text("SUBMIT REQUEST", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        padding: EdgeInsets.all(25),
+        child: Form(
+          key: _formKey, // Form wrapper
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Help ${widget.consultant['name']} understand your needs:", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+
+              SizedBox(height: 20),
+
+              TextFormField(
+                controller: _concern,
+                validator: (val) => val!.isEmpty ? "Please enter your primary concern" : null,
+                decoration: InputDecoration(labelText: "Primary Concern", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
               ),
-            ),
-          ],
+
+              SizedBox(height: 15),
+
+              TextFormField(
+                controller: _notes,
+                maxLines: 5,
+                validator: (val) => val!.isEmpty ? "Please enter your notes/symptoms" : null,
+                decoration: InputDecoration(labelText: "Additional Notes / Symptoms", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+              ),
+
+              SizedBox(height: 25),
+
+              Text("Select Data Scope to Share:", style: TextStyle(fontWeight: FontWeight.bold)),
+
+              RadioListTile(title: Text("Latest Session Only"), value: 'latest', groupValue: _scope, onChanged: (v) => setState(() => _scope = v!)),
+
+              RadioListTile(title: Text("Full Historical Data"), value: 'all', groupValue: _scope, onChanged: (v) => setState(() => _scope = v!)),
+
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text("I agree that GaitAnalytica can share my selected data with this consultant.", style: TextStyle(fontSize: 13, color: Colors.grey)),
+                value: _isChecked,
+                onChanged: (v) => setState(() => _isChecked = v!),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+
+              SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity, height: 55,
+                child: ElevatedButton(
+                  onPressed: _isChecked ? _submit : null,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: _isChecked ? AppColors.midnightNavy : Colors.grey.shade300,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                  ),
+                  child: Text("SUBMIT REQUEST", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

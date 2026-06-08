@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../core/config/api_config.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
+import 'ai_interpretation_screen.dart';
 import 'session_details_screen.dart';
 import 'goal_details_screen.dart';
 import 'goals_hub_screen.dart';
@@ -82,7 +83,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => SessionDetailsScreen(sessionId: int.parse(targetId))),
-      );
+      ).then((_) => _fetchNotifications());
     }
     else if (target == 'GoalDetail' && targetId != null) {
       setState(() => _isLoading = true);
@@ -111,9 +112,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const GoalsHubScreen()),
-      );
+      ).then((_) => _fetchNotifications());
     } else if (target == 'ScanInstructions') {
       Navigator.popUntil(context, (route) => route.isFirst);
+    } else if (target == 'AiInterpretation' && targetId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AiInterpretationScreen(sessionId: int.parse(targetId)),
+        ),
+      ).then((_) => _fetchNotifications());
     } else {
       _fetchNotifications();
     }

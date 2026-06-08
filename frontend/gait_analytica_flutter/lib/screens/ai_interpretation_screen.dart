@@ -25,34 +25,36 @@ class _AiInterpretationScreenState extends State<AiInterpretationScreen> {
   }
 
   Future<void> _fetchAiInterpretation() async {
+
+    setState(() => _isLoading = true);
+
     try {
       final token = await TokenStorage.getAccessToken();
       final response = await http.get(
         Uri.parse("${ApiConfig.baseUrl}/api/interpret-current/?session_id=${widget.sessionId}"),
-        headers: {
-          "Authorization": "Bearer $token",
-          "Content-Type": "application/json",
-        },
+        headers: {"Authorization": "Bearer $token"},
       );
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedResponse = jsonDecode(response.body);
-        if (mounted) {
-          setState(() {
-            _aiInterpretation = decodedResponse['ai_interpretation'];
-            _isLoading = false;
-          });
-        }
-      } else {
-        throw Exception("Failed to load AI details");
-      }
-    } catch (e) {
-      if (mounted) {
         setState(() {
-          _aiInterpretation = "Unable to process AI evaluation at this moment.";
+          _aiInterpretation = decodedResponse['ai_interpretation'];
           _isLoading = false;
         });
+      } else if (response.statusCode == 202) {
+        // AI is still working
+        setState(() {
+          _aiInterpretation = "AI is currently analyzing your movement. This usually takes a minute. We will notify you when it is ready so check back later!";
+          _isLoading = false;
+        });
+      } else {
+        throw Exception("Failed to load");
       }
+    } catch (e) {
+      setState(() {
+        _aiInterpretation = "Unable to process AI evaluation at this moment.";
+        _isLoading = false;
+      });
     }
   }
 
@@ -64,31 +66,42 @@ class _AiInterpretationScreenState extends State<AiInterpretationScreen> {
         backgroundColor: AppColors.pureWhite,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: AppColors.onyxCharcoal, size: 20),
+          icon: Icon(Icons.arrow_back_ios, color: AppColors.onyxCharcoal, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          if (_aiInterpretation != null && _aiInterpretation!.contains("analyzing"))
+            IconButton(
+              icon: Icon(Icons.refresh, color: AppColors.onyxCharcoal),
+              onPressed: _fetchAiInterpretation,
+            ),
+        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.skeletonBlue))
+          ? Center(child: CircularProgressIndicator(color: AppColors.skeletonBlue))
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.psychology_outlined, color: AppColors.midnightNavy, size: 28),
-                const SizedBox(width: 10),
-                const Text(
+                Icon(Icons.psychology_outlined, color: AppColors.midnightNavy, size: 28),
+
+                SizedBox(width: 10),
+
+                Text(
                   "GaitAnalytica AI Assessment",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.midnightNavy),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+
+            SizedBox(height: 20),
+
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.skeletonBlue.withOpacity(0.03),
                 borderRadius: BorderRadius.circular(20),
@@ -97,14 +110,25 @@ class _AiInterpretationScreenState extends State<AiInterpretationScreen> {
                   width: 1,
                 ),
               ),
-              child: Text(
-                _aiInterpretation ?? "No evaluation data returned.",
-                style: const TextStyle(
-                  color: AppColors.onyxCharcoal,
-                  fontSize: 15,
-                  height: 1.6,
-                  fontWeight: FontWeight.w400,
-                ),
+              child: Column(
+                children: [
+                  Text(
+                    _aiInterpretation ?? "",
+                    style: TextStyle(
+                      color: AppColors.onyxCharcoal,
+                      fontSize: 15,
+                      height: 1.6,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+
+                  if (_aiInterpretation?.contains("analyzing") == true)
+                    Padding(
+                      padding: EdgeInsets.only(top: 20),
+                      child: CircularProgressIndicator(color: AppColors.skeletonBlue),
+                    ),
+
+                ],
               ),
             ),
           ],
