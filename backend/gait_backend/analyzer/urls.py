@@ -22,7 +22,9 @@ from .views import (
     request_password_reset,
     reset_password_confirm,
     NotificationViewSet,
-    interpret_current_session_with_ai
+    interpret_current_session_with_ai,
+    get_consultants,
+    request_consultation
 )
 
 urlpatterns = [
@@ -51,4 +53,6 @@ urlpatterns = [
     path('notifications/mark-all-read/', NotificationViewSet.as_view({'post': 'mark_all_as_read'}), name='notifications-mark-all'),
     path('notifications/<int:pk>/mark-read/', NotificationViewSet.as_view({'post': 'mark_as_read'}), name='notification-mark-one'),
     path('interpret-current/', interpret_current_session_with_ai, name='interpret_current_session'),
+    path('consultants/', get_consultants, name='get_consultants'),
+    path('request-consultation/', request_consultation, name='request_consultation'),
 ]

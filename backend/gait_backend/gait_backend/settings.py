@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from django.conf.urls.static import static
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,7 +43,16 @@ INSTALLED_APPS = [
     'rest_framework',
     'analyzer',
     "corsheaders",
+    'django_q',
 ]
+
+Q_CLUSTER = {
+    'name': 'GaitAnalytica',
+    'workers': 4,
+    'timeout': 300, # 5 minutes for long tasks (like AI/Excel)
+    'retry': 360,
+    'orm': 'default', # Use your database as the broker
+}
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -129,6 +140,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# this allows URLs like http://localhost:8000/exports/video.mp4 to work
+EXPORTS_URL = '/exports/'
+EXPORTS_ROOT = BASE_DIR / 'public_exports'
 
 
 REST_FRAMEWORK = {

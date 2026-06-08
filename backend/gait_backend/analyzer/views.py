@@ -21,7 +21,8 @@ from .models import (
     UserGoal,
     UserProfile,
     EmailVerification,
-    Notification
+    Notification,
+    Consultant
 )
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
@@ -40,16 +41,28 @@ from django.utils import timezone
 from datetime import timedelta
 import threading
 import random
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.conf import settings
 
 from rest_framework import viewsets, status
+from django.template.loader import render_to_string
 
 import os
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 from google import genai
 from google.genai import types
+
+from django.shortcuts import get_object_or_404
+
+import io
+import pandas as pd
+
+from django_q.tasks import async_task
+
+
+
+
 
 # HELPER FUNCTIONS (Math parts)
 
@@ -2205,3 +2218,28 @@ def interpret_current_session_with_ai(request):
         "recorded_date": session.session_date,
         "ai_interpretation": ai_interpretation
     })
+
+
+# API 9 - consultant logic
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+# to fetch the list of consultants 
+def get_consultants(request):
+    consultants = Consultant.objects.all().values('id', 'name', 'specialization', 'email', 'bio', 'experience_years', 'profile_picture_url')
+    return Response(list(consultants))
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+# to send the consultation email
+def request_consultation(request):
+    consultant_id = request.data.get('consultant_id')
+    survey_data = request.data.get('survey_data', {})
+    scope = request.data.get('scope')
+    
+    # Trigger background task
+    async_task('analyzer.tasks.send_consultation_email_task', 
+               request.user.id, consultant_id, survey_data, scope)
+    
+    return Response({'message': 'Preparing data...'}, status=status.HTTP_202_ACCEPTED)

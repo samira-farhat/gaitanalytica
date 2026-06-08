@@ -44,8 +44,22 @@ class UserProfile(models.Model):
         return f"{self.user.first_name} {self.user.last_name}"
 
 
+# 2. CONSULTANT TABLE
 
-# 2. GAIT SESSION TABLE
+class Consultant(models.Model):
+    name = models.CharField(max_length=100)
+    specialization = models.CharField(max_length=100) 
+    email = models.EmailField() 
+    bio = models.TextField()
+    experience_years = models.IntegerField(default=1)
+    profile_picture_url = models.URLField(blank=True, null=True) 
+
+    def __str__(self):
+        return f"{self.name} - {self.specialization}"
+    
+
+
+# 3. GAIT SESSION TABLE
 
 class GaitSession(models.Model):
 
@@ -78,7 +92,7 @@ class GaitSession(models.Model):
 
 
 
-# 3. GAIT ANALYSIS TABLE
+# 4. GAIT ANALYSIS TABLE
 
 class GaitAnalysis(models.Model):
 
@@ -119,7 +133,7 @@ class GaitAnalysis(models.Model):
     def __str__(self):
         return f"Analysis {self.id} for Session {self.session.id}"
 
-# 4. KINEMATIC METRICS TABLE
+# 5. KINEMATIC METRICS TABLE
 
 class KinematicMetric(models.Model):
 
@@ -148,7 +162,7 @@ class KinematicMetric(models.Model):
 
 
 
-# 5. SPATIAL METRICS TABLE
+# 6. SPATIAL METRICS TABLE
 
 class SpatialMetric(models.Model):
 
@@ -171,7 +185,7 @@ class SpatialMetric(models.Model):
 
 
 
-# 6. TEMPORAL METRICS TABLE
+# 7. TEMPORAL METRICS TABLE
 
 class TemporalMetric(models.Model):
 
@@ -196,7 +210,7 @@ class TemporalMetric(models.Model):
 
 
 
-# 7. USER GOALS TABLE
+# 8. USER GOALS TABLE
 
 class UserGoal(models.Model):
 
@@ -287,6 +301,8 @@ class UserGoal(models.Model):
         return f"{self.user.username} - {self.metric_name}"
 
 
+# 9. EMAIL VERIFICATION TABLE FOR  OTP
+
 class EmailVerification(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     otp_code = models.CharField(max_length=6)
@@ -302,6 +318,7 @@ class EmailVerification(models.Model):
         return timezone.now() > self.last_sent + timedelta(seconds=60)
     
 
+# 10. NOTIFICATION TABLE
 
 class Notification(models.Model):
 

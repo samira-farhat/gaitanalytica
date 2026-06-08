@@ -13,6 +13,7 @@ import '../core/config/goal_config.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import '../core/services/insight_service.dart';
+import 'consultants_list_screen.dart';
 import 'goal_details_screen.dart';
 import 'goals_hub_screen.dart';
 import 'notification_screen.dart';
@@ -278,13 +279,12 @@ class _HomeScreenState extends State<HomeScreen> {
             isNewUser ? "Ready for your walk?" : "Daily Insight",
             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
-
           SizedBox(height: 8),
-
           Text(description, style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
 
-          if (isNewUser) ...[
-            SizedBox(height: 20),
+          SizedBox(height: 20),
+
+          if (isNewUser)
             ElevatedButton(
               onPressed: _navigateToInstructions,
               style: ElevatedButton.styleFrom(
@@ -293,8 +293,37 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: Text("START ANALYSIS", style: TextStyle(fontWeight: FontWeight.bold)),
+            )
+          else
+          // This is your new Consultants button
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: Offset(0, 4)),
+                ],
+              ),
+              child: TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ConsultantsListScreen()),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.15),
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text("Chat with Consultants", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
             ),
-          ],
         ],
       ),
     );
