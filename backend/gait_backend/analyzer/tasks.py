@@ -60,6 +60,7 @@ def send_consultation_email_task(user_id, consultant_id, survey_data, scope):
 
     html_content = f"""
     <h2>Consultation Request: {raw_user.first_name} {raw_user.last_name}</h2>
+    <p><strong>Email Address:</strong> {raw_user.email}</p>
     <p><strong>Profile:</strong> Age {user.age}, {user.gender}, {user.height_cm}cm, {user.weight_kg}kg</p>
     <hr>
     <h3>Clinical Concern</h3>

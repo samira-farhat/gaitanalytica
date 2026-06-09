@@ -164,6 +164,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     _buildHeroCard(isNewUser),
 
+                    SizedBox(height: 15),
+
+                    if (!isNewUser) _buildQuickActions(),
+
                     SizedBox(height: 35),
 
                     _buildSectionHeader("Recovery Progress", "View All", () {
@@ -294,38 +298,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Text("START ANALYSIS", style: TextStyle(fontWeight: FontWeight.bold)),
             )
-          else
-          // This is your new Consultants button
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: Offset(0, 4)),
-                ],
-              ),
-              child: TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => ConsultantsListScreen()),
-                  );
-                },
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.15),
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text("Chat with Consultants", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-            ),
+
         ],
       ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => ConsultantsListScreen()));
+            },
+            icon: Icon(Icons.chat_bubble_outline, size: 18),
+            label: Text("Chat with Consultants"),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.midnightNavy,
+              side: BorderSide(color: AppColors.midnightNavy.withOpacity(0.3)),
+              padding: EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
