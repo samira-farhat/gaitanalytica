@@ -210,6 +210,7 @@ flutter run
 
 ## Authentication (Login + Registration + Forgot Password)
 
+![Login Screen](screenshots/login.png)
 
 
 ---
