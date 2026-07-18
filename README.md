@@ -208,7 +208,7 @@ flutter run
 
 # Application Screenshots
 
-## Login
+## Authentication (Login + Registration + Forgot Password)
 
 
 
