@@ -218,8 +218,9 @@ flutter run
 
 ![Register Screen](screenshots/register3.png)
 
+![Forgot Password Screen](screenshots/forgotpass1.png)
 
-
+![Forgot Password Screen](screenshots/forgotpass2.png)
 
 
 ---
@@ -232,37 +233,51 @@ flutter run
 
 ## Upload Video
 
-(Add image here)
+![Home Screen](screenshots/home1.png)
+
+![Home Screen](screenshots/home2.png)
 
 ---
 
 ## Gait Analysis Results
 
-(Add image here)
+![Results Screen](screenshots/results1.png)
+
+![Results Screen](screenshots/results2.png)
 
 ---
 
 ## Progress Tracking
 
-(Add image here)
+![Progress Screen](screenshots/progress1.png)
+
+![Progress Screen](screenshots/progress2.png)
 
 ---
 
 ## Goal Management
 
-(Add image here)
+![Goal Screen](screenshots/goal1.png)
+
+![Goal Screen](screenshots/goal2.png)
+
+![Goal Screen](screenshots/goal3.png)
+
+![Goal Screen](screenshots/goal4.png)
 
 ---
 
 ## AI Interpretation
 
-(Add image here)
+![AI Screen](screenshots/interpretation.png)
 
 ---
 
 ## Consultant Module
 
-(Add image here)
+![Consultant Screen](screenshots/consultant1.png)
+
+![Consultant Screen](screenshots/consultant2.png)
 
 ---
 
