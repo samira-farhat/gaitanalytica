@@ -212,6 +212,15 @@ flutter run
 
 ![Login Screen](screenshots/login.png)
 
+![Register Screen](screenshots/register1.png)
+
+![Register Screen](screenshots/register2.png)
+
+![Register Screen](screenshots/register3.png)
+
+
+
+
 
 ---
 
